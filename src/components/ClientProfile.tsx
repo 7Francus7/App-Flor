@@ -9,7 +9,7 @@ export default function ClientProfile({ clientId, onBack }: {
   clientId: string;
   onBack: () => void;
 }) {
-  const { getClient, getClientRecords, deleteRecord, updateClient } = useStore();
+  const { getClient, getClientRecords, deleteRecord, updateClient, deleteClient } = useStore();
   const [filter, setFilter] = useState<ServiceCategory | 'all'>('all');
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [notesTemp, setNotesTemp] = useState('');
