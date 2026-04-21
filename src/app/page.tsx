@@ -65,7 +65,7 @@ export default function App() {
       )}
 
       <TabBar 
-        activeTab={activeTab === 'add' ? 'home' : activeTab} 
+        activeTab={activeTab} 
         onTabChange={(tab) => {
           if (tab === 'add') {
             setIsAddingRecord(true);
