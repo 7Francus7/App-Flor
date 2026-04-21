@@ -21,6 +21,9 @@ export const viewport: Viewport = {
   themeColor: "#F2F2F7",
 };
 
+import { InstallBanner } from "@/components/pwa/InstallBanner";
+import { OfflineIndicator } from "@/components/pwa/OfflineIndicator";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -31,7 +34,9 @@ export default function RootLayout({
       <body>
         <StoreProvider>
           <div className="app-container">
+            <InstallBanner />
             {children}
+            <OfflineIndicator />
           </div>
         </StoreProvider>
       </body>

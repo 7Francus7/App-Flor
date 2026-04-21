@@ -716,9 +716,17 @@ body {
   }
 }
 
-/* Utility for safe area bottom padding */
+/* Utility for safe area padding */
 .safe-bottom {
   padding-bottom: calc(60px + env(safe-area-inset-bottom, 8px));
+}
+
+.safe-area-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /* Delete swipe action */
