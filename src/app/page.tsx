@@ -55,6 +55,7 @@ function AppContent() {
           onGoToClients={() => setActiveTab('clients')}
           onGoToAdd={() => setIsAddingRecord(true)}
           onGoToHistory={() => setActiveTab('history')}
+          onClientSelect={setSelectedClientId}
         />
       )}
       
@@ -66,7 +67,7 @@ function AppContent() {
       )}
       
       {activeTab === 'history' && (
-        <HistoryScreen />
+        <HistoryScreen onClientSelect={setSelectedClientId} />
       )}
 
       {showAddClient && (

@@ -5,7 +5,7 @@ import { useStore } from '@/store/StoreContext';
 import { ScissorsIcon, ShirtIcon, ClockIcon } from './Icons';
 import { ServiceCategory } from '@/types';
 
-export default function HistoryScreen() {
+export default function HistoryScreen({ onClientSelect }: { onClientSelect: (id: string) => void }) {
   const { records, getClient } = useStore();
   const [filter, setFilter] = useState<ServiceCategory | 'all'>('all');
 
@@ -54,7 +54,12 @@ export default function HistoryScreen() {
               const isSalon = record.category === 'peluqueria';
               
               return (
-                <div key={record.id} className="ios-list-item" style={{ cursor: 'default' }}>
+                <div 
+                  key={record.id} 
+                  className="ios-list-item" 
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => onClientSelect(record.clientId)}
+                >
                   <div className="ios-avatar sm" style={{
                     background: isSalon ? 'var(--cat-salon-bg)' : 'var(--cat-clothing-bg)',
                     color: isSalon ? 'var(--cat-salon)' : 'var(--cat-clothing)',

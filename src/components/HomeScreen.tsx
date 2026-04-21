@@ -5,10 +5,11 @@ import { useStore } from '@/store/StoreContext';
 import { ScissorsIcon, ShirtIcon, ClockIcon, UsersIcon, SunIcon, MoonIcon } from './Icons';
 import { ServiceCategory } from '@/types';
 
-export default function HomeScreen({ onGoToClients, onGoToAdd, onGoToHistory }: {
+export default function HomeScreen({ onGoToClients, onGoToAdd, onGoToHistory, onClientSelect }: {
   onGoToClients: () => void;
   onGoToAdd: () => void;
   onGoToHistory: () => void;
+  onClientSelect: (id: string) => void;
 }) {
   const { clients, records, activeCategory, setActiveCategory, getRecentRecords, getClient, isDarkMode, toggleDarkMode } = useStore();
   const recentRecords = getRecentRecords(5);
@@ -19,6 +20,10 @@ export default function HomeScreen({ onGoToClients, onGoToAdd, onGoToHistory }: 
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr + 'T12:00:00');
     return d.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+  };
+
+  const handleRecordClick = (clientId: string) => {
+    if (clientId) onClientSelect(clientId);
   };
 
   return (
@@ -130,7 +135,11 @@ export default function HomeScreen({ onGoToClients, onGoToAdd, onGoToHistory }: 
             const client = getClient(record.clientId);
             const isSalon = record.category === 'peluqueria';
             return (
-              <div key={record.id} className="ios-list-item">
+              <div 
+                key={record.id} 
+                className="ios-list-item"
+                onClick={() => handleRecordClick(record.clientId)}
+              >
                 <div className="ios-avatar sm" style={{
                   background: isSalon ? 'var(--cat-salon-bg)' : 'var(--cat-clothing-bg)',
                   color: isSalon ? 'var(--cat-salon)' : 'var(--cat-clothing)',
