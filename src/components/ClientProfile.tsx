@@ -31,10 +31,28 @@ export default function ClientProfile({ clientId, onBack }: {
   }
 
   const records = getClientRecords(clientId, filter === 'all' ? undefined : filter);
+  const totalVisits = getClientRecords(clientId).length;
+  const pendingDebt = getClientRecords(clientId).reduce((sum, r) => r.paymentStatus === 'pendiente' ? sum + r.amount : sum, 0);
 
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr + 'T12:00:00');
     return d.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  };
+
+  const handleWhatsAppAction = (type: 'recordar' | 'agradecer' | 'ficha' | 'directo') => {
+    if (!client?.phone) return;
+    const cleanPhone = client.phone.replace(/\D/g, '');
+    let message = '';
+    
+    if (type === 'recordar') {
+      message = `Hola ${client.name}! Te escribo para recordarte tu turno en Flor Peluquería/Tienda. Te esperamos!`;
+    } else if (type === 'agradecer') {
+      message = `Hola ${client.name}! Muchas gracias por tu visita de hoy. Espero que te haya gustado todo. Nos vemos pronto!`;
+    } else if (type === 'ficha') {
+      message = `Hola ${client.name}! Aquí tienes los detalles de tu última visita: ${client.notes || 'Sin notas'}`;
+    }
+    
+    window.open(`https://wa.me/${cleanPhone}${message ? `?text=${encodeURIComponent(message)}` : ''}`, '_blank');
   };
 
   const handleSaveNotes = () => {
@@ -54,12 +72,6 @@ export default function ClientProfile({ clientId, onBack }: {
       deleteClient(clientId);
       onBack();
     }
-  };
-
-  const handleOpenWhatsApp = () => {
-    if (!client?.phone) return;
-    const cleanPhone = client.phone.replace(/\D/g, '');
-    window.open(`https://wa.me/${cleanPhone}`, '_blank');
   };
 
   return (
@@ -92,24 +104,38 @@ export default function ClientProfile({ clientId, onBack }: {
           <h2 style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 4 }}>
             {client.name}
           </h2>
-          {client.phone && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 4 }}>
-              <p style={{ fontSize: 15, color: 'var(--text-secondary)' }}>
-                {client.phone}
-              </p>
-              <button 
-                onClick={handleOpenWhatsApp}
-                style={{ 
-                  background: '#25D366', color: 'white', border: 'none', 
-                  borderRadius: 12, padding: '4px 10px', fontSize: 12, fontWeight: 600,
-                  display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer'
-                }}
-              >
-                WhatsApp
-              </button>
+          
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginTop: 12 }}>
+            <div style={{ textAlign: 'center' }}>
+              <p style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Visitas</p>
+              <p style={{ fontSize: 20, fontWeight: 700, color: 'var(--accent)' }}>{totalVisits}</p>
             </div>
-          )}
+            {pendingDebt > 0 && (
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Debe</p>
+                <p style={{ fontSize: 20, fontWeight: 700, color: '#ff3b30' }}>${pendingDebt.toLocaleString('es-AR')}</p>
+              </div>
+            )}
+          </div>
         </div>
+
+        {/* WhatsApp Actions */}
+        {client.phone && (
+          <div style={{ padding: '16px', display: 'flex', gap: 8, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+            <button onClick={() => handleWhatsAppAction('directo')} className="ios-btn-secondary" style={{ flexShrink: 0, padding: '8px 14px', fontSize: 13, background: '#25D36615', color: '#25D366', borderColor: '#25D36630' }}>
+               💬 Chatear
+            </button>
+            <button onClick={() => handleWhatsAppAction('recordar')} className="ios-btn-secondary" style={{ flexShrink: 0, padding: '8px 14px', fontSize: 13 }}>
+               ⏰ Recordar Turno
+            </button>
+            <button onClick={() => handleWhatsAppAction('agradecer')} className="ios-btn-secondary" style={{ flexShrink: 0, padding: '8px 14px', fontSize: 13 }}>
+               🤍 Agradecer
+            </button>
+            <button onClick={() => handleWhatsAppAction('ficha')} className="ios-btn-secondary" style={{ flexShrink: 0, padding: '8px 14px', fontSize: 13 }}>
+               📄 Enviar Ficha
+            </button>
+          </div>
+        )}
 
         {/* Notes / Formulas Section */}
         <div style={{ padding: '24px 16px 8px' }}>
@@ -139,7 +165,7 @@ export default function ClientProfile({ clientId, onBack }: {
               />
             ) : (
               <p style={{ fontSize: 15, color: client.notes ? 'var(--text-primary)' : 'var(--text-tertiary)', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
-                {client.notes || 'No hay notas registradas para esta clienta. Presiona Editar para agregar fórmulas o detalles importantes.'}
+                {client.notes || 'No hay notas registradas para esta clienta.'}
               </p>
             )}
           </div>
@@ -172,7 +198,7 @@ export default function ClientProfile({ clientId, onBack }: {
               {records.map((record) => {
                 const isSalon = record.category === 'peluqueria';
                 return (
-                  <div key={record.id} className="ios-card" style={{ position: 'relative' }}>
+                  <div key={record.id} className="ios-card" style={{ position: 'relative', border: record.paymentStatus === 'pendiente' ? '1px solid #ff3b3050' : 'none' }}>
                     {/* Header */}
                     <div style={{ padding: '12px 16px', borderBottom: '0.5px solid var(--separator-opaque)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -180,7 +206,10 @@ export default function ClientProfile({ clientId, onBack }: {
                           {isSalon ? <ScissorsIcon size={12} /> : <ShirtIcon size={12} />}
                           {isSalon ? 'Peluquería' : 'Tienda'}
                         </div>
-                        <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500, textTransform: 'capitalize' }}>
+                        {record.paymentStatus === 'pendiente' && (
+                          <div className="ios-badge" style={{ background: '#ff3b3015', color: '#ff3b30', fontWeight: 700 }}>DEBE</div>
+                        )}
+                        <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>
                           {formatDate(record.date)}
                         </span>
                       </div>
@@ -210,8 +239,8 @@ export default function ClientProfile({ clientId, onBack }: {
                             </p>
                           )}
                         </div>
-                        {record.amount && (
-                          <div style={{ fontSize: 17, fontWeight: 700 }}>
+                        {record.amount > 0 && (
+                          <div style={{ fontSize: 17, fontWeight: 700, color: record.paymentStatus === 'pendiente' ? '#ff3b30' : 'inherit' }}>
                             ${record.amount.toLocaleString('es-AR')}
                           </div>
                         )}
@@ -220,13 +249,24 @@ export default function ClientProfile({ clientId, onBack }: {
                       {/* Observations */}
                       {record.observations && (
                         <div style={{ background: 'var(--bg-tertiary)', padding: '12px', borderRadius: 8, marginTop: 8 }}>
-                          <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: 4 }}>Observaciones del día</p>
+                          <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: 4 }}>Observaciones</p>
                           <p style={{ fontSize: 14, color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>{record.observations}</p>
                         </div>
                       )}
 
+                      {/* Photos List */}
+                      {record.images && record.images.length > 0 && (
+                        <div style={{ display: 'flex', gap: 8, marginTop: 12, overflowX: 'auto' }}>
+                          {record.images.map((img, i) => (
+                            <div key={i} style={{ width: 80, height: 80, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: 'var(--bg-secondary)' }}>
+                              <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
                       {/* Payment Method Badge */}
-                      <div style={{ display: 'flex', marginTop: 12 }}>
+                      <div style={{ display: 'flex', marginTop: 12, gap: 8 }}>
                         <span className={`ios-badge ${record.paymentMethod === 'efectivo' ? 'cash' : record.paymentMethod === 'tarjeta' ? 'card' : 'transfer'}`}>
                           {record.paymentMethod === 'efectivo' ? '💵 Efectivo' : record.paymentMethod === 'tarjeta' ? '💳 Tarjeta' : '📱 Transferencia'}
                         </span>

@@ -21,31 +21,28 @@ export default function AddRecordScreen({ onBack, defaultCategory = 'peluqueria'
   const [size, setSize] = useState('');
   const [color, setColor] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('efectivo');
+  const [paymentStatus, setPaymentStatus] = useState<'pagado' | 'pendiente'>('pagado');
   const [amount, setAmount] = useState('');
   const [observations, setObservations] = useState('');
+  const [images, setImages] = useState<string[]>([]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!clientId || !serviceOrItem) return;
 
+    const common = {
+      date,
+      paymentMethod,
+      paymentStatus,
+      amount: amount ? Number(amount) : 0,
+      observations,
+      images
+    };
+
     if (category === 'peluqueria') {
-      addSalonRecord(clientId, {
-        date,
-        service: serviceOrItem,
-        paymentMethod,
-        amount: amount ? Number(amount) : undefined,
-        observations
-      });
+      addSalonRecord(clientId, { ...common, service: serviceOrItem });
     } else {
-      addClothingRecord(clientId, {
-        date,
-        item: serviceOrItem,
-        size,
-        color,
-        paymentMethod,
-        amount: amount ? Number(amount) : undefined,
-        observations
-      });
+      addClothingRecord(clientId, { ...common, item: serviceOrItem, size, color });
     }
 
     onBack();
@@ -169,7 +166,7 @@ export default function AddRecordScreen({ onBack, defaultCategory = 'peluqueria'
           </div>
 
           {/* Payment Details */}
-          <p className="ios-section-header">Pago</p>
+          <p className="ios-section-header">Pago y Estado</p>
           <div className="ios-input-group" style={{ marginBottom: 24 }}>
             <div className="ios-input-row">
               <label>Método</label>
@@ -181,6 +178,26 @@ export default function AddRecordScreen({ onBack, defaultCategory = 'peluqueria'
                 <option value="tarjeta">💳 Tarjeta</option>
                 <option value="transferencia">📱 Transferencia</option>
               </select>
+            </div>
+            <div className="ios-input-row">
+              <label>Estado</label>
+              <div className="ios-segment sm" style={{ maxWidth: 200 }}>
+                <button 
+                  type="button"
+                  className={`ios-segment-btn ${paymentStatus === 'pagado' ? 'active' : ''}`}
+                  onClick={() => setPaymentStatus('pagado')}
+                >
+                  Pagado
+                </button>
+                <button 
+                  type="button"
+                  className={`ios-segment-btn ${paymentStatus === 'pendiente' ? 'active' : ''}`}
+                  onClick={() => setPaymentStatus('pendiente')}
+                  style={{ color: paymentStatus === 'pendiente' ? '#ff3b30' : '' }}
+                >
+                  Debe
+                </button>
+              </div>
             </div>
             <div className="ios-input-row">
               <label>Monto</label>
@@ -195,6 +212,19 @@ export default function AddRecordScreen({ onBack, defaultCategory = 'peluqueria'
                 />
               </div>
             </div>
+          </div>
+
+          {/* Photos */}
+          <p className="ios-section-header">Fotos</p>
+          <div className="ios-input-group" style={{ marginBottom: 32, padding: '12px 16px' }}>
+             <button 
+               type="button" 
+               className="ios-btn-secondary" 
+               onClick={() => alert('Función de cámara en desarrollo. Las fotos se guardarán localmente en el dispositivo.')}
+               style={{ width: '100%', height: '80px', border: '1px dashed var(--separator)', background: 'transparent' }}
+             >
+               📸 Añadir Fotos (Antes/Después)
+             </button>
           </div>
 
           <button 

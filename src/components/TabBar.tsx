@@ -1,12 +1,14 @@
 'use client';
 
 import React from 'react';
-import { HomeIcon, UsersIcon, PlusIcon, ClockIcon } from './Icons';
+import { HomeIcon, UsersIcon, PlusIcon, ClockIcon, ChartIcon } from './Icons';
 import { hapticFeedback } from '@/utils/haptics';
 
+type TabType = 'home' | 'clients' | 'add' | 'history' | 'dashboard';
+
 interface TabBarProps {
-  activeTab: 'home' | 'clients' | 'add' | 'history';
-  onTabChange: (tab: 'home' | 'clients' | 'add' | 'history') => void;
+  activeTab: TabType;
+  onTabChange: (tab: TabType) => void;
 }
 
 export default function TabBar({ activeTab, onTabChange }: TabBarProps) {
@@ -15,9 +17,10 @@ export default function TabBar({ activeTab, onTabChange }: TabBarProps) {
     { id: 'clients' as const, label: 'Clientas', icon: UsersIcon },
     { id: 'add' as const, label: 'Registrar', icon: PlusIcon },
     { id: 'history' as const, label: 'Historial', icon: ClockIcon },
+    { id: 'dashboard' as const, label: 'Balance', icon: ChartIcon },
   ];
 
-  const handleTabClick = (tabId: 'home' | 'clients' | 'add' | 'history') => {
+  const handleTabClick = (tabId: 'home' | 'clients' | 'add' | 'history' | 'dashboard') => {
     hapticFeedback('light');
     onTabChange(tabId);
   };

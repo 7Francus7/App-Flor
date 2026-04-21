@@ -1,10 +1,15 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
-import { Client, ClientRecord, SalonRecord, ClothingRecord, ServiceCategory } from '@/types';
+import { 
+  Client, ClientRecord, SalonRecord, ClothingRecord, 
+  ServiceCategory, Expense, Product 
+} from '@/types';
 import { 
   getDbClients, getDbRecords, addDbClient, updateDbClient, deleteDbClient, 
-  addDbSalonRecord, addDbClothingRecord, deleteDbRecord 
+  addDbSalonRecord, addDbClothingRecord, deleteDbRecord,
+  getDbExpenses, addDbExpense, deleteDbExpense,
+  getDbProducts, addDbProduct, updateDbProduct, deleteDbProduct
 } from '@/actions/dbActions';
 
 // ============================================================
@@ -38,6 +43,17 @@ interface StoreContextType {
   getClientRecords: (clientId: string, category?: ServiceCategory) => ClientRecord[];
   getRecentRecords: (limit?: number) => ClientRecord[];
 
+  // Expenses
+  expenses: Expense[];
+  addExpense: (data: Omit<Expense, 'id' | 'createdAt'>) => void;
+  deleteExpense: (id: string) => void;
+
+  // Inventory (Products)
+  products: Product[];
+  addProduct: (data: Omit<Product, 'id' | 'createdAt'>) => void;
+  updateProduct: (id: string, data: Partial<Omit<Product, 'id' | 'createdAt'>>) => void;
+  deleteProduct: (id: string) => void;
+
   // Active category toggle
   activeCategory: ServiceCategory;
   setActiveCategory: (cat: ServiceCategory) => void;
@@ -53,8 +69,10 @@ interface StoreContextType {
 const StoreContext = createContext<StoreContextType | null>(null);
 
 const STORAGE_KEYS = {
-  clients: 'flor_clients_v1',
-  records: 'flor_records_v1',
+  clients: 'flor_clients_v2',
+  records: 'flor_records_v2',
+  expenses: 'flor_expenses_v2',
+  products: 'flor_products_v2',
   theme: 'flor_theme',
 };
 
@@ -64,177 +82,142 @@ const STORAGE_KEYS = {
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [clients, setClients] = useState<Client[]>([]);
   const [records, setRecords] = useState<ClientRecord[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [activeCategory, setActiveCategory] = useState<ServiceCategory>('peluqueria');
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Load from localStorage and then DB
+  // Load and sync
   useEffect(() => {
     try {
       const savedClients = localStorage.getItem(STORAGE_KEYS.clients);
       const savedRecords = localStorage.getItem(STORAGE_KEYS.records);
+      const savedExpenses = localStorage.getItem(STORAGE_KEYS.expenses);
+      const savedProducts = localStorage.getItem(STORAGE_KEYS.products);
       const savedTheme = localStorage.getItem(STORAGE_KEYS.theme);
       
       if (savedClients) setClients(JSON.parse(savedClients));
       if (savedRecords) setRecords(JSON.parse(savedRecords));
+      if (savedExpenses) setExpenses(JSON.parse(savedExpenses));
+      if (savedProducts) setProducts(JSON.parse(savedProducts));
       
       if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
         setIsDarkMode(true);
         document.documentElement.classList.add('dark');
       }
-    } catch (e) {
-      console.error('Error loading local data:', e);
-    }
+    } catch (e) { console.error('Error loading local data:', e); }
     setIsLoaded(true);
 
-    // Sync from cloud
-    const syncFromDb = async () => {
+    const sync = async () => {
       try {
-        const [dbClients, dbRecords] = await Promise.all([
-          getDbClients(),
-          getDbRecords()
+        const [dbC, dbR, dbE, dbP] = await Promise.all([
+          getDbClients(), getDbRecords(), getDbExpenses(), getDbProducts()
         ]);
-        if (dbClients.length > 0) setClients(dbClients as any);
-        if (dbRecords.length > 0) setRecords(dbRecords as any);
-      } catch (e) {
-        console.warn('Could not sync with Neon DB. Running in offline/local mode.', e);
-      }
+        if (dbC.length > 0) setClients(dbC as any);
+        if (dbR.length > 0) setRecords(dbR as any);
+        if (dbE.length > 0) setExpenses(dbE as any);
+        if (dbP.length > 0) setProducts(dbP as any);
+      } catch (e) { console.warn('Offline mode', e); }
     };
-    syncFromDb();
+    sync();
   }, []);
 
-  // Persist clients
-  useEffect(() => {
-    if (isLoaded) {
-      localStorage.setItem(STORAGE_KEYS.clients, JSON.stringify(clients));
-    }
-  }, [clients, isLoaded]);
-
-  // Persist records
-  useEffect(() => {
-    if (isLoaded) {
-      localStorage.setItem(STORAGE_KEYS.records, JSON.stringify(records));
-    }
-  }, [records, isLoaded]);
+  // Persistence
+  useEffect(() => { if (isLoaded) localStorage.setItem(STORAGE_KEYS.clients, JSON.stringify(clients)); }, [clients, isLoaded]);
+  useEffect(() => { if (isLoaded) localStorage.setItem(STORAGE_KEYS.records, JSON.stringify(records)); }, [records, isLoaded]);
+  useEffect(() => { if (isLoaded) localStorage.setItem(STORAGE_KEYS.expenses, JSON.stringify(expenses)); }, [expenses, isLoaded]);
+  useEffect(() => { if (isLoaded) localStorage.setItem(STORAGE_KEYS.products, JSON.stringify(products)); }, [products, isLoaded]);
 
   // --- Client methods ---
   const addClient = useCallback((name: string, phone?: string, notes?: string): Client => {
     const now = new Date().toISOString();
-    const client: Client = {
-      id: generateId(), // Temp ID
-      name: name.trim(),
-      phone: phone?.trim() || undefined,
-      notes: notes?.trim() || undefined,
-      createdAt: now,
-      updatedAt: now,
-    };
+    const client: Client = { id: generateId(), name: name.trim(), phone: phone?.trim(), notes: notes?.trim(), createdAt: now, updatedAt: now };
     setClients(prev => [client, ...prev]);
-
-    // Push to DB
     addDbClient({ name: client.name, phone: client.phone, notes: client.notes })
-      .then(dbClient => {
-        setClients(prev => prev.map(c => c.id === client.id ? { ...dbClient, id: dbClient.id } as any : c));
-      }).catch(e => console.error("DB add client error:", e));
-
+      .then(dbC => setClients(prev => prev.map(c => c.id === client.id ? { ...dbC, id: dbC.id } as any : c)));
     return client;
   }, []);
 
   const updateClient = useCallback((id: string, data: Partial<Pick<Client, 'name' | 'phone' | 'notes'>>) => {
-    setClients(prev =>
-      prev.map(c =>
-        c.id === id
-          ? { ...c, ...data, updatedAt: new Date().toISOString() }
-          : c
-      )
-    );
-    // Push to DB
-    updateDbClient(id, data as any).catch(e => console.error("DB update client error:", e));
+    setClients(prev => prev.map(c => c.id === id ? { ...c, ...data, updatedAt: new Date().toISOString() } : c));
+    updateDbClient(id, data as any);
   }, []);
 
   const deleteClient = useCallback((id: string) => {
     setClients(prev => prev.filter(c => c.id !== id));
-    setRecords(prev => prev.filter(r => r.clientId !== id));
-    // Push to DB
-    deleteDbClient(id).catch(e => console.error("DB delete client error:", e));
+    deleteDbClient(id);
   }, []);
 
-  const getClient = useCallback((id: string) => {
-    return clients.find(c => c.id === id);
-  }, [clients]);
-
+  const getClient = useCallback((id: string) => clients.find(c => c.id === id), [clients]);
   const searchClients = useCallback((query: string) => {
-    if (!query.trim()) return clients;
     const q = query.toLowerCase().trim();
-    return clients.filter(c =>
-      c.name.toLowerCase().includes(q) ||
-      (c.phone && c.phone.includes(q))
-    );
+    if (!q) return clients;
+    return clients.filter(c => c.name.toLowerCase().includes(q) || (c.phone && c.phone.includes(q)));
   }, [clients]);
 
   // --- Record methods ---
   const addSalonRecord = useCallback((clientId: string, data: Omit<SalonRecord, 'id' | 'clientId' | 'category' | 'createdAt'>) => {
-    const record: SalonRecord = {
-      id: generateId(),
-      clientId,
-      category: 'peluqueria',
-      createdAt: new Date().toISOString(),
-      ...data,
-    };
+    const record: SalonRecord = { id: generateId(), clientId, category: 'peluqueria', createdAt: new Date().toISOString(), ...data };
     setRecords(prev => [record, ...prev]);
-    
-    // Push to DB
-    addDbSalonRecord(clientId, data)
-      .then(dbRecord => {
-        setRecords(prev => prev.map(r => r.id === record.id ? dbRecord as any : r));
-      }).catch(e => console.error("DB add record error:", e));
+    addDbSalonRecord(clientId, data).then(dbR => setRecords(prev => prev.map(r => r.id === record.id ? dbR as any : r)));
   }, []);
 
   const addClothingRecord = useCallback((clientId: string, data: Omit<ClothingRecord, 'id' | 'clientId' | 'category' | 'createdAt'>) => {
-    const record: ClothingRecord = {
-      id: generateId(),
-      clientId,
-      category: 'ropa',
-      createdAt: new Date().toISOString(),
-      ...data,
-    };
+    const record: ClothingRecord = { id: generateId(), clientId, category: 'ropa', createdAt: new Date().toISOString(), ...data };
     setRecords(prev => [record, ...prev]);
-
-    // Push to DB
-    addDbClothingRecord(clientId, data)
-      .then(dbRecord => {
-        setRecords(prev => prev.map(r => r.id === record.id ? dbRecord as any : r));
-      }).catch(e => console.error("DB add record error:", e));
+    addDbClothingRecord(clientId, data).then(dbR => setRecords(prev => prev.map(r => r.id === record.id ? dbR as any : r)));
   }, []);
 
   const deleteRecord = useCallback((id: string) => {
     setRecords(prev => prev.filter(r => r.id !== id));
-    deleteDbRecord(id).catch(e => console.error("DB delete record error:", e));
+    deleteDbRecord(id);
   }, []);
 
   const getClientRecords = useCallback((clientId: string, category?: ServiceCategory) => {
     let filtered = records.filter(r => r.clientId === clientId);
-    if (category) {
-      filtered = filtered.filter(r => r.category === category);
-    }
+    if (category) filtered = filtered.filter(r => r.category === category);
     return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [records]);
 
   const getRecentRecords = useCallback((limit = 20) => {
-    return [...records]
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, limit);
+    return [...records].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, limit);
   }, [records]);
+
+  // --- Expense methods ---
+  const addExpense = useCallback((data: Omit<Expense, 'id' | 'createdAt'>) => {
+    const expense: Expense = { id: generateId(), createdAt: new Date().toISOString(), ...data };
+    setExpenses(prev => [expense, ...prev]);
+    addDbExpense(data).then(dbE => setExpenses(prev => prev.map(e => e.id === expense.id ? dbE as any : e)));
+  }, []);
+
+  const deleteExpense = useCallback((id: string) => {
+    setExpenses(prev => prev.filter(e => e.id !== id));
+    deleteDbExpense(id);
+  }, []);
+
+  // --- Product methods ---
+  const addProduct = useCallback((data: Omit<Product, 'id' | 'createdAt'>) => {
+    const product: Product = { id: generateId(), createdAt: new Date().toISOString(), ...data };
+    setProducts(prev => [product, ...prev]);
+    addDbProduct(data).then(dbP => setProducts(prev => prev.map(p => p.id === product.id ? dbP as any : p)));
+  }, []);
+
+  const updateProduct = useCallback((id: string, data: Partial<Omit<Product, 'id' | 'createdAt'>>) => {
+    setProducts(prev => prev.map(p => p.id === id ? { ...p, ...data } : p));
+    updateDbProduct(id, data);
+  }, []);
+
+  const deleteProduct = useCallback((id: string) => {
+    setProducts(prev => prev.filter(p => p.id !== id));
+    deleteDbProduct(id);
+  }, []);
 
   const toggleDarkMode = useCallback(() => {
     setIsDarkMode(prev => {
       const newVal = !prev;
-      if (newVal) {
-        document.documentElement.classList.add('dark');
-        localStorage.setItem(STORAGE_KEYS.theme, 'dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-        localStorage.setItem(STORAGE_KEYS.theme, 'light');
-      }
+      document.documentElement.classList.toggle('dark', newVal);
+      localStorage.setItem(STORAGE_KEYS.theme, newVal ? 'dark' : 'light');
       return newVal;
     });
   }, []);
@@ -254,6 +237,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         deleteRecord,
         getClientRecords,
         getRecentRecords,
+        expenses,
+        addExpense,
+        deleteExpense,
+        products,
+        addProduct,
+        updateProduct,
+        deleteProduct,
         activeCategory,
         setActiveCategory,
         isDarkMode,

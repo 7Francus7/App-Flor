@@ -9,8 +9,11 @@ import HistoryScreen from '@/components/HistoryScreen';
 import AddRecordScreen from '@/components/AddRecordScreen';
 import ClientProfile from '@/components/ClientProfile';
 import AddClientSheet from '@/components/AddClientSheet';
+import DashboardScreen from '@/components/DashboardScreen';
+import InventoryScreen from '@/components/InventoryScreen';
+import ExpensesScreen from '@/components/ExpensesScreen';
 
-type Tab = 'home' | 'clients' | 'add' | 'history';
+type Tab = 'home' | 'clients' | 'add' | 'history' | 'dashboard';
 
 import { Suspense } from 'react';
 
@@ -20,6 +23,7 @@ function AppContent() {
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [showAddClient, setShowAddClient] = useState(false);
   const [isAddingRecord, setIsAddingRecord] = useState(false);
+  const [currentSubScreen, setCurrentSubScreen] = useState<'inventory' | 'expenses' | null>(null);
 
   // Handle PWA shortcuts and deep links
   useEffect(() => {
@@ -35,6 +39,14 @@ function AppContent() {
   // Router logic
   if (selectedClientId) {
     return <ClientProfile clientId={selectedClientId} onBack={() => setSelectedClientId(null)} />;
+  }
+
+  if (currentSubScreen === 'inventory') {
+    return <InventoryScreen onBack={() => setCurrentSubScreen(null)} />;
+  }
+
+  if (currentSubScreen === 'expenses') {
+    return <ExpensesScreen onBack={() => setCurrentSubScreen(null)} />;
   }
 
   if (isAddingRecord || activeTab === 'add') {
@@ -70,6 +82,13 @@ function AppContent() {
         <HistoryScreen onClientSelect={setSelectedClientId} />
       )}
 
+      {activeTab === 'dashboard' && (
+        <DashboardScreen 
+          onGoToInventory={() => setCurrentSubScreen('inventory')}
+          onGoToExpenses={() => setCurrentSubScreen('expenses')}
+        />
+      )}
+
       {showAddClient && (
         <AddClientSheet 
           onClose={() => setShowAddClient(false)}
@@ -89,6 +108,7 @@ function AppContent() {
             setActiveTab(tab);
             setSelectedClientId(null);
             setIsAddingRecord(false);
+            setCurrentSubScreen(null);
           }
         }} 
       />

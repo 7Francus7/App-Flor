@@ -6,6 +6,8 @@ export type PaymentMethod = 'efectivo' | 'tarjeta' | 'transferencia';
 
 export type ServiceCategory = 'peluqueria' | 'ropa';
 
+export type PaymentStatus = 'pagado' | 'pendiente';
+
 // Registro de un servicio de peluquería
 export interface SalonRecord {
   id: string;
@@ -14,8 +16,10 @@ export interface SalonRecord {
   date: string; // ISO string
   service: string; // Ej: "Color + Corte", "Mechas", "Brushing"
   paymentMethod: PaymentMethod;
-  amount?: number;
+  paymentStatus: PaymentStatus;
+  amount: number;
   observations: string; // Notas de color, fórmulas, etc.
+  images?: string[]; // URLs or base64
   createdAt: string;
 }
 
@@ -29,8 +33,10 @@ export interface ClothingRecord {
   size: string; // Talle
   color: string;
   paymentMethod: PaymentMethod;
-  amount?: number;
+  paymentStatus: PaymentStatus;
+  amount: number;
   observations: string;
+  images?: string[];
   createdAt: string;
 }
 
@@ -45,11 +51,35 @@ export interface Client {
   updatedAt: string;
 }
 
+// Gastos del negocio
+export interface Expense {
+  id: string;
+  date: string;
+  description: string;
+  amount: number;
+  category: 'insumos' | 'alquiler' | 'servicios' | 'ropa' | 'publicidad' | 'otros';
+  createdAt: string;
+}
+
+// Inventario de ropa
+export interface Product {
+  id: string;
+  name: string;
+  description?: string;
+  price: number;
+  stock: number;
+  category: string;
+  size?: string;
+  color?: string;
+  createdAt: string;
+}
+
 // Para los formularios
 export interface SalonFormData {
   service: string;
   date: string;
   paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
   amount: string;
   observations: string;
 }
@@ -60,6 +90,7 @@ export interface ClothingFormData {
   color: string;
   date: string;
   paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
   amount: string;
   observations: string;
 }
