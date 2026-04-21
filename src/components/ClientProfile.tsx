@@ -177,7 +177,7 @@ export default function ClientProfile({ clientId, onBack }: {
                     <div style={{ padding: '12px 16px', borderBottom: '0.5px solid var(--separator-opaque)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <div className={`ios-badge ${isSalon ? 'salon' : 'clothing'}`}>
-                          {isSalon ? <ScissorsIcon size={12} style={{ marginRight: 4 }} /> : <ShirtIcon size={12} style={{ marginRight: 4 }} />}
+                          {isSalon ? <ScissorsIcon size={12} /> : <ShirtIcon size={12} />}
                           {isSalon ? 'Peluquería' : 'Tienda'}
                         </div>
                         <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500, textTransform: 'capitalize' }}>
