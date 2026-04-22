@@ -30,7 +30,7 @@ export default function ClientsScreen({ onClientSelect, onAddNewClient }: {
       </div>
 
       {/* List */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px', paddingBottom: '100px' }}>
+      <div className="screen-content" style={{ flex: 1, overflowY: 'auto', paddingBottom: '100px' }}>
         {filteredClients.length === 0 ? (
           <div className="ios-empty">
             <div className="ios-empty-icon">

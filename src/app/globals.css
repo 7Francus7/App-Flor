@@ -688,9 +688,218 @@ body {
 }
 
 /* ============================================================
-   Responsive: Desktop gets a centered max-width container
+   Screen content wrapper (responsive padding)
+   ============================================================ */
+.screen-content {
+  padding: 0 16px 16px;
+}
+
+/* ============================================================
+   Stats grid (responsive columns)
+   ============================================================ */
+.stats-grid {
+  grid-template-columns: 1fr 1fr;
+}
+
+/* ============================================================
+   Client history cards grid for tablet
+   ============================================================ */
+.history-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ============================================================
+   Dashboard action buttons grid
+   ============================================================ */
+.action-buttons-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+/* ============================================================
+   Responsive: Tablet (iPads, tablets — 768px to 1199px)
    ============================================================ */
 @media (min-width: 768px) {
+  /* Tablet: use most of the screen with a comfortable max-width */
+  .app-container {
+    max-width: 760px;
+    margin: 0 auto;
+    min-height: 100dvh;
+    position: relative;
+  }
+
+  /* Screen content: wider padding on tablet */
+  .screen-content {
+    padding: 0 32px 24px;
+  }
+
+  /* Stats grid: still 2 columns but with room */
+  .stats-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  /* History cards: 2-column grid on tablet */
+  .history-cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  /* Action buttons side by side */
+  .action-buttons-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  /* Tab bar spans the content width */
+  .ios-tab-bar {
+    max-width: 760px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 10px 24px calc(10px + env(safe-area-inset-bottom));
+  }
+
+  /* Larger tab icons & labels for tablet touch */
+  .ios-tab-btn {
+    font-size: 11px;
+    gap: 5px;
+    padding: 6px 0;
+  }
+
+  .ios-tab-btn svg {
+    width: 28px;
+    height: 28px;
+  }
+
+  /* Content padding for tablet */
+  .tablet-pad {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  /* Sheet modals: centered and wider */
+  .ios-sheet-backdrop {
+    align-items: center;
+  }
+
+  .ios-sheet {
+    border-radius: var(--radius-lg);
+    max-height: 85dvh;
+    max-width: 600px;
+    margin-bottom: 0;
+  }
+
+  /* List items taller for larger touch targets */
+  .ios-list-item {
+    padding: 14px 20px;
+    gap: 14px;
+    min-height: 52px;
+  }
+
+  /* Larger avatar on tablet */
+  .ios-avatar {
+    width: 48px;
+    height: 48px;
+    font-size: 18px;
+  }
+
+  .ios-avatar.lg {
+    width: 100px;
+    height: 100px;
+    font-size: 36px;
+  }
+
+  /* Card padding improvements */
+  .ios-card {
+    border-radius: var(--radius-lg);
+  }
+
+  .ios-list-group {
+    border-radius: var(--radius-lg);
+  }
+
+  /* Input groups with more room */
+  .ios-input-row {
+    padding: 14px 20px;
+    gap: 16px;
+    min-height: 50px;
+  }
+
+  .ios-input-row label {
+    font-size: 17px;
+    min-width: 120px;
+  }
+
+  /* Buttons larger on tablet */
+  .ios-btn-primary {
+    padding: 16px 24px;
+    font-size: 17px;
+    border-radius: var(--radius-lg);
+  }
+
+  /* Section headers with breathing room */
+  .ios-section-header {
+    font-size: 13px;
+    padding: 28px 20px 10px 20px;
+  }
+
+  /* Segment controls wider */
+  .ios-segment {
+    padding: 3px;
+    border-radius: 10px;
+  }
+
+  .ios-segment-btn {
+    padding: 8px 20px;
+    font-size: 14px;
+    border-radius: 8px;
+  }
+
+  /* Search bar bigger */
+  .ios-search {
+    padding: 10px 16px;
+    gap: 10px;
+    border-radius: var(--radius-md);
+  }
+
+  .ios-search input {
+    font-size: 17px;
+  }
+
+  /* Nav title */
+  .ios-nav-title {
+    font-size: 36px;
+  }
+
+  /* Empty state */
+  .ios-empty {
+    padding: 64px 48px;
+    gap: 16px;
+  }
+
+  .ios-empty-icon {
+    width: 64px;
+    height: 64px;
+  }
+
+  .ios-empty h3 {
+    font-size: 22px;
+  }
+
+  .ios-empty p {
+    font-size: 16px;
+    max-width: 360px;
+  }
+}
+
+/* ============================================================
+   Responsive: Desktop (large screens — 1200px+)
+   Phone simulation in a centered container
+   ============================================================ */
+@media (min-width: 1200px) {
   .app-container {
     max-width: 430px;
     margin: 0 auto;
@@ -699,20 +908,132 @@ body {
     box-shadow: var(--shadow-lg);
   }
 
+  /* Revert tablet padding for desktop phone simulation */
+  .screen-content {
+    padding: 0 16px 16px;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .history-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .action-buttons-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
   .ios-tab-bar {
     max-width: 430px;
     left: 50%;
     transform: translateX(-50%);
+    padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
   }
-  
-  .ios-sheet-backdrop {
-    align-items: center;
+
+  /* Revert tablet sizes for desktop phone simulation */
+  .ios-tab-btn {
+    font-size: 10px;
+    gap: 4px;
+    padding: 4px 0;
   }
-  
+
+  .ios-tab-btn svg {
+    width: 26px;
+    height: 26px;
+  }
+
+  .ios-list-item {
+    padding: 12px 16px;
+    gap: 12px;
+    min-height: 44px;
+  }
+
+  .ios-avatar {
+    width: 44px;
+    height: 44px;
+    font-size: 17px;
+  }
+
+  .ios-avatar.lg {
+    width: 80px;
+    height: 80px;
+    font-size: 30px;
+  }
+
+  .ios-card {
+    border-radius: var(--radius-md);
+  }
+
+  .ios-list-group {
+    border-radius: var(--radius-md);
+  }
+
+  .ios-input-row {
+    padding: 12px 16px;
+    gap: 12px;
+    min-height: 44px;
+  }
+
+  .ios-input-row label {
+    min-width: 100px;
+  }
+
+  .ios-btn-primary {
+    padding: 14px 20px;
+    border-radius: var(--radius-md);
+  }
+
+  .ios-section-header {
+    padding: 24px 16px 8px 16px;
+  }
+
+  .ios-segment {
+    padding: 2px;
+    border-radius: 9px;
+  }
+
+  .ios-segment-btn {
+    padding: 7px 16px;
+    font-size: 13px;
+    border-radius: 7px;
+  }
+
+  .ios-search {
+    padding: 8px 12px;
+    gap: 8px;
+    border-radius: var(--radius-sm);
+  }
+
+  .ios-nav-title {
+    font-size: 34px;
+  }
+
+  .ios-empty {
+    padding: 48px 32px;
+    gap: 12px;
+  }
+
+  .ios-empty-icon {
+    width: 56px;
+    height: 56px;
+  }
+
+  .ios-empty h3 {
+    font-size: 20px;
+  }
+
+  .ios-empty p {
+    font-size: 15px;
+    max-width: 280px;
+  }
+
   .ios-sheet {
-    border-radius: var(--radius-lg);
-    max-height: 85dvh;
-    margin-bottom: 0;
+    max-width: 500px;
   }
 }
 

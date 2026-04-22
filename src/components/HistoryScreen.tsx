@@ -38,7 +38,7 @@ export default function HistoryScreen({ onClientSelect }: { onClientSelect: (id:
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px', paddingBottom: '100px' }}>
+      <div className="screen-content" style={{ flex: 1, overflowY: 'auto', paddingBottom: '100px' }}>
         {displayRecords.length === 0 ? (
           <div className="ios-empty">
             <div className="ios-empty-icon">

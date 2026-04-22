@@ -194,7 +194,7 @@ export default function ClientProfile({ clientId, onBack }: {
               <p>No hay historial registrado.</p>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div className="history-cards">
               {records.map((record) => {
                 const isSalon = record.category === 'peluqueria';
                 return (

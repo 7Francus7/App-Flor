@@ -27,7 +27,7 @@ export default function HomeScreen({ onGoToClients, onGoToAdd, onGoToHistory, on
   };
 
   return (
-    <div style={{ padding: '0 16px', paddingBottom: '16px' }} className="animate-fade-in">
+    <div className="animate-fade-in screen-content">
       {/* Header */}
       <div className="ios-nav" style={{ position: 'relative', borderBottom: 'none', background: 'transparent', backdropFilter: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0 16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -73,7 +73,7 @@ export default function HomeScreen({ onGoToClients, onGoToAdd, onGoToHistory, on
       </div>
 
       {/* Quick Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }}>
+      <div className="stats-grid" style={{ display: 'grid', gap: 12, marginBottom: 24 }}>
         <div className="ios-card" style={{ padding: '16px', cursor: 'pointer' }} onClick={onGoToClients}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
             <div style={{

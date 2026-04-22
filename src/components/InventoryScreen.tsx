@@ -41,7 +41,7 @@ export default function InventoryScreen({ onBack }: { onBack: () => void }) {
         </button>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px', paddingBottom: '100px' }}>
+      <div className="screen-content" style={{ flex: 1, overflowY: 'auto', paddingBottom: '100px' }}>
         {products.length === 0 ? (
           <div className="ios-empty">
             <PackageIcon size={48} style={{ opacity: 0.2, marginBottom: 16 }} />

@@ -54,7 +54,7 @@ export default function DashboardScreen({ onGoToInventory, onGoToExpenses }: {
   }, [records, expenses]);
 
   return (
-    <div className="animate-fade-in" style={{ padding: '16px', paddingBottom: '100px' }}>
+    <div className="animate-fade-in screen-content" style={{ paddingBottom: '100px' }}>
       <div className="ios-nav" style={{ padding: '12px 0 20px', borderBottom: 'none' }}>
         <h1 className="ios-nav-title" style={{ fontSize: 32 }}>Balance</h1>
       </div>
@@ -86,7 +86,7 @@ export default function DashboardScreen({ onGoToInventory, onGoToExpenses }: {
       </div>
 
       {/* Grid of Secondary Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
+      <div className="stats-grid" style={{ display: 'grid', gap: 16, marginBottom: 24 }}>
         <div className="ios-card" style={{ padding: 16 }}>
           <div style={{ color: 'var(--cat-salon)', marginBottom: 12 }}><ScissorsIcon size={20} /></div>
           <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 4 }}>Peluquería</p>
@@ -134,7 +134,7 @@ export default function DashboardScreen({ onGoToInventory, onGoToExpenses }: {
       </div>
 
       {/* Quick Access to New Modules */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+      <div className="action-buttons-grid">
         <button 
           className="ios-btn-secondary" 
           style={{ justifyContent: 'flex-start', padding: '16px' }}

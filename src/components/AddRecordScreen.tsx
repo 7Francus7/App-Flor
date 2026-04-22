@@ -59,7 +59,7 @@ export default function AddRecordScreen({ onBack, defaultCategory = 'peluqueria'
         <div style={{ width: 68 }} />
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px', paddingBottom: '100px' }}>
+      <div className="screen-content" style={{ flex: 1, overflowY: 'auto', paddingBottom: '100px' }}>
         {/* Category Toggle */}
         <div className="ios-segment" style={{ marginBottom: 24 }}>
           <button
