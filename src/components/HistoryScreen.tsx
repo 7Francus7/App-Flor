@@ -10,7 +10,9 @@ export default function HistoryScreen({ onClientSelect }: { onClientSelect: (id:
   const [filter, setFilter] = useState<ServiceCategory | 'all'>('all');
 
   // Sort by date descending
-  let displayRecords = [...records].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  let displayRecords = [...records]
+    .filter((record) => getClient(record.clientId))
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   
   if (filter !== 'all') {
     displayRecords = displayRecords.filter(r => r.category === filter);
@@ -68,7 +70,7 @@ export default function HistoryScreen({ onClientSelect }: { onClientSelect: (id:
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
-                      {client?.name || 'Clienta eliminada'}
+                      {client!.name}
                     </p>
                     <p style={{ fontSize: 13, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {isSalon ? (record as any).service : `${(record as any).item} · ${(record as any).color}`}

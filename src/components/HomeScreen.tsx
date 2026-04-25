@@ -12,7 +12,7 @@ export default function HomeScreen({ onGoToClients, onGoToAdd, onGoToHistory, on
   onClientSelect: (id: string) => void;
 }) {
   const { clients, records, activeCategory, setActiveCategory, getRecentRecords, getClient, isDarkMode, toggleDarkMode } = useStore();
-  const recentRecords = getRecentRecords(5);
+  const recentRecords = getRecentRecords(5).filter((record) => getClient(record.clientId));
 
   const todayStr = new Date().toISOString().split('T')[0];
   const todayRecords = records.filter(r => r.date === todayStr);
@@ -23,7 +23,7 @@ export default function HomeScreen({ onGoToClients, onGoToAdd, onGoToHistory, on
   };
 
   const handleRecordClick = (clientId: string) => {
-    if (clientId) onClientSelect(clientId);
+    if (getClient(clientId)) onClientSelect(clientId);
   };
 
   return (

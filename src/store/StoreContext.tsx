@@ -23,13 +23,18 @@ function getTodayISO(): string {
   return new Date().toISOString().split('T')[0];
 }
 
+function filterOrphanRecords(clients: Client[], records: ClientRecord[]): ClientRecord[] {
+  const clientIds = new Set(clients.map((client) => client.id));
+  return records.filter((record) => clientIds.has(record.clientId));
+}
+
 // ============================================================
 // Store Interface
 // ============================================================
 interface StoreContextType {
   // Clients
   clients: Client[];
-  addClient: (name: string, phone?: string, notes?: string) => Client;
+  addClient: (name: string, phone?: string, notes?: string) => Promise<Client>;
   updateClient: (id: string, data: Partial<Pick<Client, 'name' | 'phone' | 'notes'>>) => void;
   deleteClient: (id: string) => void;
   getClient: (id: string) => Client | undefined;
@@ -96,9 +101,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const savedExpenses = localStorage.getItem(STORAGE_KEYS.expenses);
       const savedProducts = localStorage.getItem(STORAGE_KEYS.products);
       const savedTheme = localStorage.getItem(STORAGE_KEYS.theme);
-      
-      if (savedClients) setClients(JSON.parse(savedClients));
-      if (savedRecords) setRecords(JSON.parse(savedRecords));
+
+      const parsedClients: Client[] = savedClients ? JSON.parse(savedClients) : [];
+      const parsedRecords: ClientRecord[] = savedRecords ? JSON.parse(savedRecords) : [];
+      const safeRecords = filterOrphanRecords(parsedClients, parsedRecords);
+
+      if (parsedClients.length > 0) setClients(parsedClients);
+      if (safeRecords.length > 0) setRecords(safeRecords);
       if (savedExpenses) setExpenses(JSON.parse(savedExpenses));
       if (savedProducts) setProducts(JSON.parse(savedProducts));
       
@@ -130,13 +139,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => { if (isLoaded) localStorage.setItem(STORAGE_KEYS.products, JSON.stringify(products)); }, [products, isLoaded]);
 
   // --- Client methods ---
-  const addClient = useCallback((name: string, phone?: string, notes?: string): Client => {
+  const addClient = useCallback(async (name: string, phone?: string, notes?: string): Promise<Client> => {
     const now = new Date().toISOString();
     const client: Client = { id: generateId(), name: name.trim(), phone: phone?.trim(), notes: notes?.trim(), createdAt: now, updatedAt: now };
     setClients(prev => [client, ...prev]);
-    addDbClient({ name: client.name, phone: client.phone, notes: client.notes })
-      .then(dbC => setClients(prev => prev.map(c => c.id === client.id ? { ...dbC, id: dbC.id } as any : c)));
-    return client;
+
+    try {
+      const dbClient = await addDbClient({ name: client.name, phone: client.phone, notes: client.notes });
+
+      setClients(prev => prev.map(c => c.id === client.id ? dbClient : c));
+      setRecords(prev => prev.map(record => record.clientId === client.id ? { ...record, clientId: dbClient.id } : record));
+
+      return dbClient;
+    } catch (error) {
+      console.warn('Client saved only locally', error);
+      return client;
+    }
   }, []);
 
   const updateClient = useCallback((id: string, data: Partial<Pick<Client, 'name' | 'phone' | 'notes'>>) => {
@@ -146,6 +164,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const deleteClient = useCallback((id: string) => {
     setClients(prev => prev.filter(c => c.id !== id));
+    setRecords(prev => prev.filter(r => r.clientId !== id));
     deleteDbClient(id);
   }, []);
 

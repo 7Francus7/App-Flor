@@ -11,12 +11,16 @@ export default function AddClientSheet({ onClose, onClientAdded }: {
   const { addClient } = useStore();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
-    const newClient = addClient(name, phone);
+    if (!name.trim() || isSaving) return;
+
+    setIsSaving(true);
+    const newClient = await addClient(name, phone);
     onClientAdded(newClient.id);
+    setIsSaving(false);
   };
 
   return (
@@ -59,9 +63,9 @@ export default function AddClientSheet({ onClose, onClientAdded }: {
           <button 
             type="submit" 
             className="ios-btn-primary"
-            disabled={!name.trim()}
+            disabled={!name.trim() || isSaving}
           >
-            Guardar Clienta
+            {isSaving ? 'Guardando...' : 'Guardar Clienta'}
           </button>
         </form>
       </div>
