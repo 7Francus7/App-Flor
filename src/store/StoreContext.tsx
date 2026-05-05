@@ -1,26 +1,29 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
-import { 
-  Client, ClientRecord, SalonRecord, ClothingRecord, 
-  ServiceCategory, Expense, Product 
+import { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from 'react';
+import {
+  Client, ClientRecord, SalonRecord, ClothingRecord,
+  ServiceCategory, Expense, Product, RecordUpdateData
 } from '@/types';
-import { 
-  getDbClients, getDbRecords, addDbClient, updateDbClient, deleteDbClient, 
-  addDbSalonRecord, addDbClothingRecord, deleteDbRecord,
+import {
+  getDbClients, getDbRecords, addDbClient, updateDbClient, deleteDbClient,
+  addDbSalonRecord, addDbClothingRecord, updateDbRecord, deleteDbRecord,
   getDbExpenses, addDbExpense, deleteDbExpense,
   getDbProducts, addDbProduct, updateDbProduct, deleteDbProduct
 } from '@/actions/dbActions';
 
-// ============================================================
-// Utilidades
-// ============================================================
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substring(2, 9);
 }
 
-function getTodayISO(): string {
-  return new Date().toISOString().split('T')[0];
+function loadStoredValue<T>(key: string, fallback: T): T {
+  if (typeof window === 'undefined') return fallback;
+  try {
+    const rawValue = localStorage.getItem(key);
+    return rawValue ? JSON.parse(rawValue) as T : fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 function filterOrphanRecords(clients: Client[], records: ClientRecord[]): ClientRecord[] {
@@ -28,36 +31,38 @@ function filterOrphanRecords(clients: Client[], records: ClientRecord[]): Client
   return records.filter((record) => clientIds.has(record.clientId));
 }
 
-// ============================================================
-// Store Interface
-// ============================================================
+function replaceOptimisticItem<T extends { id: string }>(items: T[], optimisticId: string, nextItem: T): T[] {
+  return items.map((item) => item.id === optimisticId ? nextItem : item);
+}
+
 interface StoreContextType {
   // Clients
   clients: Client[];
   addClient: (name: string, phone?: string, notes?: string) => Promise<Client>;
   updateClient: (id: string, data: Partial<Pick<Client, 'name' | 'phone' | 'notes'>>) => void;
-  deleteClient: (id: string) => void;
+  deleteClient: (id: string) => () => void;
   getClient: (id: string) => Client | undefined;
   searchClients: (query: string) => Client[];
 
   // Records
   records: ClientRecord[];
   addSalonRecord: (clientId: string, data: Omit<SalonRecord, 'id' | 'clientId' | 'category' | 'createdAt'>) => void;
-  addClothingRecord: (clientId: string, data: Omit<ClothingRecord, 'id' | 'clientId' | 'category' | 'createdAt'>) => void;
-  deleteRecord: (id: string) => void;
+  addClothingRecord: (clientId: string, data: Omit<ClothingRecord, 'id' | 'clientId' | 'category' | 'createdAt'>, productId?: string) => void;
+  updateRecord: (id: string, data: RecordUpdateData) => void;
+  deleteRecord: (id: string) => () => void;
   getClientRecords: (clientId: string, category?: ServiceCategory) => ClientRecord[];
   getRecentRecords: (limit?: number) => ClientRecord[];
 
   // Expenses
   expenses: Expense[];
   addExpense: (data: Omit<Expense, 'id' | 'createdAt'>) => void;
-  deleteExpense: (id: string) => void;
+  deleteExpense: (id: string) => () => void;
 
   // Inventory (Products)
   products: Product[];
   addProduct: (data: Omit<Product, 'id' | 'createdAt'>) => void;
   updateProduct: (id: string, data: Partial<Omit<Product, 'id' | 'createdAt'>>) => void;
-  deleteProduct: (id: string) => void;
+  deleteProduct: (id: string) => () => void;
 
   // Active category toggle
   activeCategory: ServiceCategory;
@@ -69,6 +74,7 @@ interface StoreContextType {
 
   // State
   isLoaded: boolean;
+  syncError: boolean;
 }
 
 const StoreContext = createContext<StoreContextType | null>(null);
@@ -81,53 +87,68 @@ const STORAGE_KEYS = {
   theme: 'flor_theme',
 };
 
-// ============================================================
-// Provider
-// ============================================================
+const UNDO_DELAY = 5000;
+
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [clients, setClients] = useState<Client[]>([]);
-  const [records, setRecords] = useState<ClientRecord[]>([]);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [clients, setClients] = useState<Client[]>(() => loadStoredValue<Client[]>(STORAGE_KEYS.clients, []));
+  const [records, setRecords] = useState<ClientRecord[]>(() => {
+    const storedClients = loadStoredValue<Client[]>(STORAGE_KEYS.clients, []);
+    const storedRecords = loadStoredValue<ClientRecord[]>(STORAGE_KEYS.records, []);
+    return filterOrphanRecords(storedClients, storedRecords);
+  });
+  const [expenses, setExpenses] = useState<Expense[]>(() => loadStoredValue<Expense[]>(STORAGE_KEYS.expenses, []));
+  const [products, setProducts] = useState<Product[]>(() => loadStoredValue<Product[]>(STORAGE_KEYS.products, []));
   const [activeCategory, setActiveCategory] = useState<ServiceCategory>('peluqueria');
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [syncError, setSyncError] = useState(false);
+  const isLoaded = true;
 
-  // Load and sync
+  // Undo timers — id → setTimeout handle
+  const undoTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  function scheduleDbDelete(id: string, dbDeleteFn: () => void) {
+    const timer = setTimeout(() => {
+      dbDeleteFn();
+      undoTimers.current.delete(id);
+    }, UNDO_DELAY);
+    undoTimers.current.set(id, timer);
+  }
+
+  function cancelDbDelete(id: string) {
+    const timer = undoTimers.current.get(id);
+    if (timer) { clearTimeout(timer); undoTimers.current.delete(id); }
+  }
+
+  // Theme
   useEffect(() => {
-    try {
-      const savedClients = localStorage.getItem(STORAGE_KEYS.clients);
-      const savedRecords = localStorage.getItem(STORAGE_KEYS.records);
-      const savedExpenses = localStorage.getItem(STORAGE_KEYS.expenses);
-      const savedProducts = localStorage.getItem(STORAGE_KEYS.products);
+    document.documentElement.classList.toggle('dark', isDarkMode);
+  }, [isDarkMode]);
+
+  useEffect(() => {
+    queueMicrotask(() => {
       const savedTheme = localStorage.getItem(STORAGE_KEYS.theme);
+      const shouldUseDarkMode = savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      setIsDarkMode(shouldUseDarkMode);
+      document.documentElement.classList.toggle('dark', shouldUseDarkMode);
+    });
+  }, []);
 
-      const parsedClients: Client[] = savedClients ? JSON.parse(savedClients) : [];
-      const parsedRecords: ClientRecord[] = savedRecords ? JSON.parse(savedRecords) : [];
-      const safeRecords = filterOrphanRecords(parsedClients, parsedRecords);
-
-      if (parsedClients.length > 0) setClients(parsedClients);
-      if (safeRecords.length > 0) setRecords(safeRecords);
-      if (savedExpenses) setExpenses(JSON.parse(savedExpenses));
-      if (savedProducts) setProducts(JSON.parse(savedProducts));
-      
-      if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-        setIsDarkMode(true);
-        document.documentElement.classList.add('dark');
-      }
-    } catch (e) { console.error('Error loading local data:', e); }
-    setIsLoaded(true);
-
+  // DB sync on mount
+  useEffect(() => {
     const sync = async () => {
       try {
         const [dbC, dbR, dbE, dbP] = await Promise.all([
           getDbClients(), getDbRecords(), getDbExpenses(), getDbProducts()
         ]);
-        if (dbC.length > 0) setClients(dbC as any);
-        if (dbR.length > 0) setRecords(dbR as any);
-        if (dbE.length > 0) setExpenses(dbE as any);
-        if (dbP.length > 0) setProducts(dbP as any);
-      } catch (e) { console.warn('Offline mode', e); }
+        setClients(dbC);
+        setRecords(filterOrphanRecords(dbC, dbR));
+        setExpenses(dbE);
+        setProducts(dbP);
+        setSyncError(false);
+      } catch (e) {
+        console.warn('Offline mode', e);
+        setSyncError(true);
+      }
     };
     sync();
   }, []);
@@ -143,13 +164,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const now = new Date().toISOString();
     const client: Client = { id: generateId(), name: name.trim(), phone: phone?.trim(), notes: notes?.trim(), createdAt: now, updatedAt: now };
     setClients(prev => [client, ...prev]);
-
     try {
       const dbClient = await addDbClient({ name: client.name, phone: client.phone, notes: client.notes });
-
-      setClients(prev => prev.map(c => c.id === client.id ? dbClient : c));
+      setClients(prev => replaceOptimisticItem(prev, client.id, dbClient));
       setRecords(prev => prev.map(record => record.clientId === client.id ? { ...record, clientId: dbClient.id } : record));
-
       return dbClient;
     } catch (error) {
       console.warn('Client saved only locally', error);
@@ -159,14 +177,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const updateClient = useCallback((id: string, data: Partial<Pick<Client, 'name' | 'phone' | 'notes'>>) => {
     setClients(prev => prev.map(c => c.id === id ? { ...c, ...data, updatedAt: new Date().toISOString() } : c));
-    updateDbClient(id, data as any);
+    updateDbClient(id, data);
   }, []);
 
-  const deleteClient = useCallback((id: string) => {
+  const deleteClient = useCallback((id: string): (() => void) => {
+    // Capture before setState so the undo closure always has the data
+    const deletedClient = clients.find(c => c.id === id);
+    const deletedClientRecords = records.filter(r => r.clientId === id);
+
     setClients(prev => prev.filter(c => c.id !== id));
     setRecords(prev => prev.filter(r => r.clientId !== id));
-    deleteDbClient(id);
-  }, []);
+
+    scheduleDbDelete(id, () => deleteDbClient(id));
+
+    return () => {
+      cancelDbDelete(id);
+      if (deletedClient) setClients(prev => [deletedClient, ...prev]);
+      if (deletedClientRecords.length) setRecords(prev => [...prev, ...deletedClientRecords]);
+    };
+  }, [clients, records]);
 
   const getClient = useCallback((id: string) => clients.find(c => c.id === id), [clients]);
   const searchClients = useCallback((query: string) => {
@@ -179,19 +208,69 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const addSalonRecord = useCallback((clientId: string, data: Omit<SalonRecord, 'id' | 'clientId' | 'category' | 'createdAt'>) => {
     const record: SalonRecord = { id: generateId(), clientId, category: 'peluqueria', createdAt: new Date().toISOString(), ...data };
     setRecords(prev => [record, ...prev]);
-    addDbSalonRecord(clientId, data).then(dbR => setRecords(prev => prev.map(r => r.id === record.id ? dbR as any : r)));
+    addDbSalonRecord(clientId, data).then(dbRecord => setRecords(prev => replaceOptimisticItem(prev, record.id, dbRecord)));
   }, []);
 
-  const addClothingRecord = useCallback((clientId: string, data: Omit<ClothingRecord, 'id' | 'clientId' | 'category' | 'createdAt'>) => {
+  const addClothingRecord = useCallback((
+    clientId: string,
+    data: Omit<ClothingRecord, 'id' | 'clientId' | 'category' | 'createdAt'>,
+    productId?: string
+  ) => {
     const record: ClothingRecord = { id: generateId(), clientId, category: 'ropa', createdAt: new Date().toISOString(), ...data };
     setRecords(prev => [record, ...prev]);
-    addDbClothingRecord(clientId, data).then(dbR => setRecords(prev => prev.map(r => r.id === record.id ? dbR as any : r)));
+    addDbClothingRecord(clientId, data).then(dbRecord => setRecords(prev => replaceOptimisticItem(prev, record.id, dbRecord)));
+
+    // Decrement stock of linked product
+    if (productId) {
+      setProducts(prev => {
+        const product = prev.find(p => p.id === productId);
+        if (product && product.stock > 0) {
+          const newStock = product.stock - 1;
+          updateDbProduct(productId, { stock: newStock });
+          return prev.map(p => p.id === productId ? { ...p, stock: newStock } : p);
+        }
+        return prev;
+      });
+    }
   }, []);
 
-  const deleteRecord = useCallback((id: string) => {
+  const updateRecord = useCallback((id: string, data: RecordUpdateData) => {
+    setRecords(prev => prev.map(r => {
+      if (r.id !== id) return r;
+      if (r.category === 'peluqueria') {
+        return { ...r, ...data, service: data.service ?? r.service } as SalonRecord;
+      } else {
+        return { ...r, ...data, item: data.item ?? r.item } as ClothingRecord;
+      }
+    }));
+    const record = records.find(r => r.id === id);
+    if (!record) return;
+    updateDbRecord(id, {
+      date: data.date ?? record.date,
+      serviceOrItem: record.category === 'peluqueria'
+        ? (data.service ?? (record as SalonRecord).service)
+        : (data.item ?? (record as ClothingRecord).item),
+      size: record.category === 'ropa' ? (data.size ?? (record as ClothingRecord).size) : undefined,
+      color: record.category === 'ropa' ? (data.color ?? (record as ClothingRecord).color) : undefined,
+      paymentMethod: data.paymentMethod ?? record.paymentMethod,
+      paymentStatus: data.paymentStatus ?? record.paymentStatus,
+      amount: data.amount ?? record.amount,
+      observations: data.observations ?? record.observations,
+    });
+  }, [records]);
+
+  const deleteRecord = useCallback((id: string): (() => void) => {
+    const record = records.find(r => r.id === id);
+    if (!record) return () => {};
+
     setRecords(prev => prev.filter(r => r.id !== id));
-    deleteDbRecord(id);
-  }, []);
+    scheduleDbDelete(id, () => deleteDbRecord(id));
+
+    return () => {
+      cancelDbDelete(id);
+      setRecords(prev => [...prev, record].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+    };
+  }, [records]);
 
   const getClientRecords = useCallback((clientId: string, category?: ServiceCategory) => {
     let filtered = records.filter(r => r.clientId === clientId);
@@ -207,19 +286,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const addExpense = useCallback((data: Omit<Expense, 'id' | 'createdAt'>) => {
     const expense: Expense = { id: generateId(), createdAt: new Date().toISOString(), ...data };
     setExpenses(prev => [expense, ...prev]);
-    addDbExpense(data).then(dbE => setExpenses(prev => prev.map(e => e.id === expense.id ? dbE as any : e)));
+    addDbExpense(data).then(dbExpense => setExpenses(prev => replaceOptimisticItem(prev, expense.id, dbExpense)));
   }, []);
 
-  const deleteExpense = useCallback((id: string) => {
+  const deleteExpense = useCallback((id: string): (() => void) => {
+    const expense = expenses.find(e => e.id === id);
+    if (!expense) return () => {};
+
     setExpenses(prev => prev.filter(e => e.id !== id));
-    deleteDbExpense(id);
-  }, []);
+    scheduleDbDelete(id, () => deleteDbExpense(id));
+
+    return () => {
+      cancelDbDelete(id);
+      setExpenses(prev => [...prev, expense].sort((a, b) => b.date.localeCompare(a.date)));
+    };
+  }, [expenses]);
 
   // --- Product methods ---
   const addProduct = useCallback((data: Omit<Product, 'id' | 'createdAt'>) => {
     const product: Product = { id: generateId(), createdAt: new Date().toISOString(), ...data };
     setProducts(prev => [product, ...prev]);
-    addDbProduct(data).then(dbP => setProducts(prev => prev.map(p => p.id === product.id ? dbP as any : p)));
+    addDbProduct(data).then(dbProduct => setProducts(prev => replaceOptimisticItem(prev, product.id, dbProduct)));
   }, []);
 
   const updateProduct = useCallback((id: string, data: Partial<Omit<Product, 'id' | 'createdAt'>>) => {
@@ -227,10 +314,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     updateDbProduct(id, data);
   }, []);
 
-  const deleteProduct = useCallback((id: string) => {
+  const deleteProduct = useCallback((id: string): (() => void) => {
+    const product = products.find(p => p.id === id);
+    if (!product) return () => {};
+
     setProducts(prev => prev.filter(p => p.id !== id));
-    deleteDbProduct(id);
-  }, []);
+    scheduleDbDelete(id, () => deleteDbProduct(id));
+
+    return () => {
+      cancelDbDelete(id);
+      setProducts(prev => [...prev, product].sort((a, b) => a.name.localeCompare(b.name)));
+    };
+  }, [products]);
 
   const toggleDarkMode = useCallback(() => {
     setIsDarkMode(prev => {
@@ -244,30 +339,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   return (
     <StoreContext.Provider
       value={{
-        clients,
-        addClient,
-        updateClient,
-        deleteClient,
-        getClient,
-        searchClients,
-        records,
-        addSalonRecord,
-        addClothingRecord,
-        deleteRecord,
-        getClientRecords,
-        getRecentRecords,
-        expenses,
-        addExpense,
-        deleteExpense,
-        products,
-        addProduct,
-        updateProduct,
-        deleteProduct,
-        activeCategory,
-        setActiveCategory,
-        isDarkMode,
-        toggleDarkMode,
-        isLoaded,
+        clients, addClient, updateClient, deleteClient, getClient, searchClients,
+        records, addSalonRecord, addClothingRecord, updateRecord, deleteRecord, getClientRecords, getRecentRecords,
+        expenses, addExpense, deleteExpense,
+        products, addProduct, updateProduct, deleteProduct,
+        activeCategory, setActiveCategory,
+        isDarkMode, toggleDarkMode,
+        isLoaded, syncError,
       }}
     >
       {children}
@@ -277,8 +355,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
 export function useStore() {
   const context = useContext(StoreContext);
-  if (!context) {
-    throw new Error('useStore must be used within a StoreProvider');
-  }
+  if (!context) throw new Error('useStore must be used within a StoreProvider');
   return context;
 }

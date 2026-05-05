@@ -2,39 +2,45 @@
 
 import React, { useMemo } from 'react';
 import { useStore } from '@/store/StoreContext';
-import { ChartIcon, DollarIcon, CreditCardIcon, UsersIcon, PackageIcon, ScissorsIcon, ShirtIcon } from './Icons';
+import { DollarIcon, CreditCardIcon, PackageIcon, ScissorsIcon, ShirtIcon } from './Icons';
+import { exportRecordsToCsv, exportExpensesToCsv } from '@/utils/exportCsv';
 
-export default function DashboardScreen({ onGoToInventory, onGoToExpenses }: {
+export default function DashboardScreen({
+  onGoToInventory,
+  onGoToExpenses,
+  onGoToDebtors,
+}: {
   onGoToInventory: () => void;
   onGoToExpenses: () => void;
+  onGoToDebtors: () => void;
 }) {
-  const { records, expenses, products, clients } = useStore();
+  const { records, expenses, products, getClient } = useStore();
 
   const stats = useMemo(() => {
     const now = new Date();
     const todayStr = now.toISOString().split('T')[0];
-    
-    // Start of week (Sunday)
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay());
-    startOfWeek.setHours(0,0,0,0);
-
-    // Start of month
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const todayRecords = records.filter(r => r.date === todayStr);
-    const weekRecords = records.filter(r => new Date(r.date) >= startOfWeek);
-    const monthRecords = records.filter(r => new Date(r.date) >= startOfMonth);
+    const todayRecords = records.filter((r) => r.date === todayStr);
+    const monthRecords = records.filter((r) => {
+      const d = new Date(r.date + 'T12:00:00');
+      return d >= startOfMonth;
+    });
 
     const totalToday = todayRecords.reduce((sum, r) => sum + r.amount, 0);
     const totalMonth = monthRecords.reduce((sum, r) => sum + r.amount, 0);
-    
+    const totalExpensesToday = expenses
+      .filter((e) => e.date === todayStr)
+      .reduce((sum, e) => sum + e.amount, 0);
     const totalExpensesMonth = expenses
-      .filter(e => new Date(e.date) >= startOfMonth)
+      .filter((e) => {
+        const d = new Date(e.date + 'T12:00:00');
+        return d >= startOfMonth;
+      })
       .reduce((sum, e) => sum + e.amount, 0);
 
     const pendingAmount = records
-      .filter(r => r.paymentStatus === 'pendiente')
+      .filter((r) => r.paymentStatus === 'pendiente')
       .reduce((sum, r) => sum + r.amount, 0);
 
     const paymentMethods = records.reduce((acc, r) => {
@@ -48,27 +54,56 @@ export default function DashboardScreen({ onGoToInventory, onGoToExpenses }: {
       totalExpensesMonth,
       pendingAmount,
       paymentMethods,
-      salonRevenue: monthRecords.filter(r => r.category === 'peluqueria').reduce((sum, r) => sum + r.amount, 0),
-      clothingRevenue: monthRecords.filter(r => r.category === 'ropa').reduce((sum, r) => sum + r.amount, 0),
+      netToday: totalToday - totalExpensesToday,
+      netMonth: totalMonth - totalExpensesMonth,
+      lowStockCount: products.filter((p) => p.stock <= 2).length,
+      clientsWithDebt: new Set(
+        records.filter((r) => r.paymentStatus === 'pendiente').map((r) => r.clientId)
+      ).size,
+      salonRevenue: monthRecords
+        .filter((r) => r.category === 'peluqueria')
+        .reduce((sum, r) => sum + r.amount, 0),
+      clothingRevenue: monthRecords
+        .filter((r) => r.category === 'ropa')
+        .reduce((sum, r) => sum + r.amount, 0),
     };
-  }, [records, expenses]);
+  }, [records, expenses, products]);
+
+  const handleExportRecords = () => {
+    exportRecordsToCsv(records, (id) => getClient(id)?.name ?? 'Clienta eliminada');
+  };
+
+  const handleExportExpenses = () => {
+    exportExpensesToCsv(expenses);
+  };
 
   return (
     <div className="animate-fade-in screen-content" style={{ paddingBottom: '100px' }}>
-      <div className="ios-nav" style={{ padding: '12px 0 20px', borderBottom: 'none' }}>
+      <div className="ios-nav" style={{ padding: '12px 0 20px', borderBottom: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <h1 className="ios-nav-title" style={{ fontSize: 32 }}>Balance</h1>
+        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+          <button onClick={handleExportRecords} className="ios-btn-secondary" style={{ padding: '6px 12px', fontSize: 12 }}>
+            CSV Registros
+          </button>
+          <button onClick={handleExportExpenses} className="ios-btn-secondary" style={{ padding: '6px 12px', fontSize: 12 }}>
+            CSV Gastos
+          </button>
+        </div>
       </div>
 
-      {/* Main Stats Card */}
-      <div className="ios-card" style={{ 
-        background: 'linear-gradient(135deg, var(--accent) 0%, #ff85a2 100%)', 
-        color: 'white',
-        padding: '24px',
-        marginBottom: 24,
-        boxShadow: '0 10px 30px rgba(255, 107, 145, 0.3)'
-      }}>
+      {/* Main hero card */}
+      <div
+        className="ios-card"
+        style={{
+          background: 'linear-gradient(135deg, var(--accent) 0%, #ff85a2 100%)',
+          color: 'white',
+          padding: '24px',
+          marginBottom: 24,
+          boxShadow: '0 10px 30px rgba(255, 107, 145, 0.3)',
+        }}
+      >
         <p style={{ fontSize: 13, fontWeight: 600, opacity: 0.9, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          Ganancia del Mes
+          Ingreso del Mes
         </p>
         <h2 style={{ fontSize: 42, fontWeight: 800, margin: 0, letterSpacing: '-0.03em' }}>
           ${stats.totalMonth.toLocaleString('es-AR')}
@@ -85,7 +120,23 @@ export default function DashboardScreen({ onGoToInventory, onGoToExpenses }: {
         </div>
       </div>
 
-      {/* Grid of Secondary Stats */}
+      {/* Net stats */}
+      <div className="stats-grid" style={{ display: 'grid', gap: 16, marginBottom: 24 }}>
+        <div className="ios-card" style={{ padding: 16 }}>
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 4 }}>Neto de Hoy</p>
+          <p style={{ fontSize: 24, fontWeight: 700, color: stats.netToday >= 0 ? 'var(--text-primary)' : '#ff3b30' }}>
+            ${stats.netToday.toLocaleString('es-AR')}
+          </p>
+        </div>
+        <div className="ios-card" style={{ padding: 16 }}>
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 4 }}>Neto del Mes</p>
+          <p style={{ fontSize: 24, fontWeight: 700, color: stats.netMonth >= 0 ? 'var(--text-primary)' : '#ff3b30' }}>
+            ${stats.netMonth.toLocaleString('es-AR')}
+          </p>
+        </div>
+      </div>
+
+      {/* Category breakdown */}
       <div className="stats-grid" style={{ display: 'grid', gap: 16, marginBottom: 24 }}>
         <div className="ios-card" style={{ padding: 16 }}>
           <div style={{ color: 'var(--cat-salon)', marginBottom: 12 }}><ScissorsIcon size={20} /></div>
@@ -103,7 +154,35 @@ export default function DashboardScreen({ onGoToInventory, onGoToExpenses }: {
         </div>
       </div>
 
-      {/* Expenses Summary */}
+      {/* Clickable alert stats */}
+      <div className="stats-grid" style={{ display: 'grid', gap: 16, marginBottom: 24 }}>
+        <button
+          className="ios-card"
+          style={{ padding: 16, textAlign: 'left', cursor: stats.clientsWithDebt > 0 ? 'pointer' : 'default', border: 'none', background: 'var(--bg-secondary)' }}
+          onClick={stats.clientsWithDebt > 0 ? onGoToDebtors : undefined}
+        >
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 4 }}>
+            Clientas con deuda {stats.clientsWithDebt > 0 ? '→' : ''}
+          </p>
+          <p style={{ fontSize: 20, fontWeight: 700, color: stats.clientsWithDebt > 0 ? '#ff3b30' : 'var(--text-primary)' }}>
+            {stats.clientsWithDebt}
+          </p>
+        </button>
+        <button
+          className="ios-card"
+          style={{ padding: 16, textAlign: 'left', cursor: stats.lowStockCount > 0 ? 'pointer' : 'default', border: 'none', background: 'var(--bg-secondary)' }}
+          onClick={stats.lowStockCount > 0 ? onGoToInventory : undefined}
+        >
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 4 }}>
+            Stock bajo {stats.lowStockCount > 0 ? '→' : ''}
+          </p>
+          <p style={{ fontSize: 20, fontWeight: 700, color: stats.lowStockCount > 0 ? '#ff3b30' : 'var(--text-primary)' }}>
+            {stats.lowStockCount}
+          </p>
+        </button>
+      </div>
+
+      {/* Expenses */}
       <p className="ios-section-header">Gastos del Mes</p>
       <div className="ios-card" style={{ padding: 20, marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
@@ -120,7 +199,11 @@ export default function DashboardScreen({ onGoToInventory, onGoToExpenses }: {
       {/* Payment Methods */}
       <p className="ios-section-header">Métodos de Pago</p>
       <div className="ios-list-group" style={{ marginBottom: 24 }}>
-        {Object.entries(stats.paymentMethods).map(([method, amount]) => (
+        {Object.entries(stats.paymentMethods).length === 0 ? (
+          <div className="ios-list-item">
+            <p style={{ color: 'var(--text-secondary)' }}>Todavía no hay movimientos registrados.</p>
+          </div>
+        ) : Object.entries(stats.paymentMethods).map(([method, amount]) => (
           <div key={method} className="ios-list-item">
             <div className="ios-avatar sm" style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
               {method === 'efectivo' ? <DollarIcon size={16} /> : <CreditCardIcon size={16} />}
@@ -133,18 +216,17 @@ export default function DashboardScreen({ onGoToInventory, onGoToExpenses }: {
         ))}
       </div>
 
-      {/* Quick Access to New Modules */}
       <div className="action-buttons-grid">
-        <button 
-          className="ios-btn-secondary" 
+        <button
+          className="ios-btn-secondary"
           style={{ justifyContent: 'flex-start', padding: '16px' }}
           onClick={onGoToInventory}
         >
           <PackageIcon size={20} style={{ marginRight: 12, color: 'var(--accent)' }} />
           <span>Gestionar Inventario de Ropa</span>
         </button>
-        <button 
-          className="ios-btn-secondary" 
+        <button
+          className="ios-btn-secondary"
           style={{ justifyContent: 'flex-start', padding: '16px' }}
           onClick={onGoToExpenses}
         >

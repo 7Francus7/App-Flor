@@ -2,25 +2,36 @@
 
 import React, { useState } from 'react';
 import { useStore } from '@/store/StoreContext';
+import { useToast } from '@/context/ToastContext';
 import { ChevronLeft, ScissorsIcon, ShirtIcon, TrashIcon, PaletteIcon, EditIcon, CheckIcon } from './Icons';
-import { ServiceCategory } from '@/types';
+import { ClientRecord, PaymentMethod, RecordUpdateData, ServiceCategory } from '@/types';
 
 export default function ClientProfile({ clientId, onBack }: {
   clientId: string;
   onBack: () => void;
 }) {
-  const { getClient, getClientRecords, deleteRecord, updateClient, deleteClient } = useStore();
+  const { getClient, getClientRecords, deleteRecord, updateRecord, updateClient, deleteClient } = useStore();
+  const { showToast } = useToast();
   const [filter, setFilter] = useState<ServiceCategory | 'all'>('all');
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [notesTemp, setNotesTemp] = useState('');
-  
-  // Edit Profile State
+
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
-  
+
+  const [editingRecord, setEditingRecord] = useState<ClientRecord | null>(null);
+  const [editDate, setEditDate] = useState('');
+  const [editServiceOrItem, setEditServiceOrItem] = useState('');
+  const [editSize, setEditSize] = useState('');
+  const [editColor, setEditColor] = useState('');
+  const [editPaymentMethod, setEditPaymentMethod] = useState<PaymentMethod>('efectivo');
+  const [editPaymentStatus, setEditPaymentStatus] = useState<'pagado' | 'pendiente'>('pagado');
+  const [editAmount, setEditAmount] = useState('');
+  const [editObservations, setEditObservations] = useState('');
+
   const client = getClient(clientId);
-  
+
   if (!client) {
     return (
       <div className="ios-empty" style={{ height: '100dvh' }}>
@@ -42,8 +53,8 @@ export default function ClientProfile({ clientId, onBack }: {
   const handleWhatsAppAction = (type: 'recordar' | 'agradecer' | 'ficha' | 'directo') => {
     if (!client?.phone) return;
     const cleanPhone = client.phone.replace(/\D/g, '');
+    if (!cleanPhone) return;
     let message = '';
-    
     if (type === 'recordar') {
       message = `Hola ${client.name}! Te escribo para recordarte tu turno en Flor Peluquería/Tienda. Te esperamos!`;
     } else if (type === 'agradecer') {
@@ -51,7 +62,6 @@ export default function ClientProfile({ clientId, onBack }: {
     } else if (type === 'ficha') {
       message = `Hola ${client.name}! Aquí tienes los detalles de tu última visita: ${client.notes || 'Sin notas'}`;
     }
-    
     window.open(`https://wa.me/${cleanPhone}${message ? `?text=${encodeURIComponent(message)}` : ''}`, '_blank');
   };
 
@@ -67,11 +77,52 @@ export default function ClientProfile({ clientId, onBack }: {
     setIsEditingProfile(false);
   };
 
-  const handleDeleteClient = () => {
-    if (confirm('¿Estás segura de que querés eliminar a esta clienta y todo su historial? Esta acción no se puede deshacer.')) {
-      deleteClient(clientId);
-      onBack();
+  const openEditRecord = (record: ClientRecord) => {
+    setEditingRecord(record);
+    setEditDate(record.date);
+    setEditServiceOrItem(record.category === 'peluqueria' ? record.service : record.item);
+    setEditSize(record.category === 'ropa' ? record.size : '');
+    setEditColor(record.category === 'ropa' ? record.color : '');
+    setEditPaymentMethod(record.paymentMethod);
+    setEditPaymentStatus(record.paymentStatus);
+    setEditAmount(record.amount > 0 ? record.amount.toString() : '');
+    setEditObservations(record.observations || '');
+  };
+
+  const handleSaveRecord = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingRecord || !editServiceOrItem) return;
+    const base: RecordUpdateData = {
+      date: editDate,
+      paymentMethod: editPaymentMethod,
+      paymentStatus: editPaymentStatus,
+      amount: editAmount ? Number(editAmount) : 0,
+      observations: editObservations,
+    };
+    if (editingRecord.category === 'peluqueria') {
+      updateRecord(editingRecord.id, { ...base, service: editServiceOrItem });
+    } else {
+      updateRecord(editingRecord.id, { ...base, item: editServiceOrItem, size: editSize, color: editColor });
     }
+    setEditingRecord(null);
+  };
+
+  const handleMarkAsPaid = (record: ClientRecord) => {
+    updateRecord(record.id, { paymentStatus: 'pagado' });
+    showToast('Pago registrado', undefined, 'success');
+  };
+
+  const handleDeleteRecord = (record: ClientRecord) => {
+    if (!confirm('¿Eliminar este registro del historial?')) return;
+    const undo = deleteRecord(record.id);
+    showToast('Registro eliminado', undo);
+  };
+
+  const handleDeleteClient = () => {
+    if (!confirm('¿Estás segura de que querés eliminar a esta clienta y todo su historial? Esta acción se puede deshacer por 5 segundos.')) return;
+    const undo = deleteClient(clientId);
+    showToast(`Clienta "${client.name}" eliminada`, undo);
+    onBack();
   };
 
   return (
@@ -82,9 +133,9 @@ export default function ClientProfile({ clientId, onBack }: {
           <ChevronLeft size={24} /> Volver
         </button>
         <span style={{ fontWeight: 600, fontSize: 17, letterSpacing: '-0.01em' }}>Perfil</span>
-        <button 
-          className="ios-btn-text" 
-          style={{ padding: 0, fontSize: 15 }} 
+        <button
+          className="ios-btn-text"
+          style={{ padding: 0, fontSize: 15 }}
           onClick={() => {
             setEditName(client.name);
             setEditPhone(client.phone || '');
@@ -104,7 +155,7 @@ export default function ClientProfile({ clientId, onBack }: {
           <h2 style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 4 }}>
             {client.name}
           </h2>
-          
+
           <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginTop: 12 }}>
             <div style={{ textAlign: 'center' }}>
               <p style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Visitas</p>
@@ -123,16 +174,16 @@ export default function ClientProfile({ clientId, onBack }: {
         {client.phone && (
           <div style={{ padding: '16px', display: 'flex', gap: 8, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
             <button onClick={() => handleWhatsAppAction('directo')} className="ios-btn-secondary" style={{ flexShrink: 0, padding: '8px 14px', fontSize: 13, background: '#25D36615', color: '#25D366', borderColor: '#25D36630' }}>
-               💬 Chatear
+              💬 Chatear
             </button>
             <button onClick={() => handleWhatsAppAction('recordar')} className="ios-btn-secondary" style={{ flexShrink: 0, padding: '8px 14px', fontSize: 13 }}>
-               ⏰ Recordar Turno
+              ⏰ Recordar Turno
             </button>
             <button onClick={() => handleWhatsAppAction('agradecer')} className="ios-btn-secondary" style={{ flexShrink: 0, padding: '8px 14px', fontSize: 13 }}>
-               🤍 Agradecer
+              🤍 Agradecer
             </button>
             <button onClick={() => handleWhatsAppAction('ficha')} className="ios-btn-secondary" style={{ flexShrink: 0, padding: '8px 14px', fontSize: 13 }}>
-               📄 Enviar Ficha
+              📄 Enviar Ficha
             </button>
           </div>
         )}
@@ -153,7 +204,7 @@ export default function ClientProfile({ clientId, onBack }: {
               </button>
             )}
           </div>
-          
+
           <div className="ios-card" style={{ padding: isEditingNotes ? 0 : 16 }}>
             {isEditingNotes ? (
               <textarea
@@ -175,15 +226,9 @@ export default function ClientProfile({ clientId, onBack }: {
         <p className="ios-section-header">Historial de Visitas</p>
         <div style={{ padding: '0 16px 16px' }}>
           <div className="ios-segment">
-            <button className={`ios-segment-btn ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>
-              Todo
-            </button>
-            <button className={`ios-segment-btn ${filter === 'peluqueria' ? 'active' : ''}`} onClick={() => setFilter('peluqueria')}>
-              Peluquería
-            </button>
-            <button className={`ios-segment-btn ${filter === 'ropa' ? 'active' : ''}`} onClick={() => setFilter('ropa')}>
-              Ropa
-            </button>
+            <button className={`ios-segment-btn ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>Todo</button>
+            <button className={`ios-segment-btn ${filter === 'peluqueria' ? 'active' : ''}`} onClick={() => setFilter('peluqueria')}>Peluquería</button>
+            <button className={`ios-segment-btn ${filter === 'ropa' ? 'active' : ''}`} onClick={() => setFilter('ropa')}>Ropa</button>
           </div>
         </div>
 
@@ -201,7 +246,7 @@ export default function ClientProfile({ clientId, onBack }: {
                   <div key={record.id} className="ios-card" style={{ position: 'relative', border: record.paymentStatus === 'pendiente' ? '1px solid #ff3b3050' : 'none' }}>
                     {/* Header */}
                     <div style={{ padding: '12px 16px', borderBottom: '0.5px solid var(--separator-opaque)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                         <div className={`ios-badge ${isSalon ? 'salon' : 'clothing'}`}>
                           {isSalon ? <ScissorsIcon size={12} /> : <ShirtIcon size={12} />}
                           {isSalon ? 'Peluquería' : 'Tienda'}
@@ -213,17 +258,32 @@ export default function ClientProfile({ clientId, onBack }: {
                           {formatDate(record.date)}
                         </span>
                       </div>
-                      <button 
-                        className="ios-btn-icon" 
-                        style={{ width: 28, height: 28, color: 'var(--text-tertiary)' }}
-                        onClick={() => {
-                          if(confirm('¿Eliminar este registro del historial?')) {
-                            deleteRecord(record.id);
-                          }
-                        }}
-                      >
-                        <TrashIcon size={16} />
-                      </button>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        {record.paymentStatus === 'pendiente' && (
+                          <button
+                            className="ios-btn-icon"
+                            style={{ width: 28, height: 28, color: '#34c759' }}
+                            title="Marcar como pagado"
+                            onClick={() => handleMarkAsPaid(record)}
+                          >
+                            <CheckIcon size={16} />
+                          </button>
+                        )}
+                        <button
+                          className="ios-btn-icon"
+                          style={{ width: 28, height: 28, color: 'var(--accent)' }}
+                          onClick={() => openEditRecord(record)}
+                        >
+                          <EditIcon size={16} />
+                        </button>
+                        <button
+                          className="ios-btn-icon"
+                          style={{ width: 28, height: 28, color: 'var(--text-tertiary)' }}
+                          onClick={() => handleDeleteRecord(record)}
+                        >
+                          <TrashIcon size={16} />
+                        </button>
+                      </div>
                     </div>
 
                     {/* Body */}
@@ -231,11 +291,11 @@ export default function ClientProfile({ clientId, onBack }: {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                         <div>
                           <h4 style={{ fontSize: 17, fontWeight: 600, letterSpacing: '-0.01em', marginBottom: 4 }}>
-                            {isSalon ? (record as any).service : (record as any).item}
+                            {isSalon ? record.service : record.item}
                           </h4>
                           {!isSalon && (
                             <p style={{ fontSize: 15, color: 'var(--text-secondary)' }}>
-                              Talle: {(record as any).size} · Color: {(record as any).color}
+                              Talle: {record.size} · Color: {record.color}
                             </p>
                           )}
                         </div>
@@ -246,7 +306,6 @@ export default function ClientProfile({ clientId, onBack }: {
                         )}
                       </div>
 
-                      {/* Observations */}
                       {record.observations && (
                         <div style={{ background: 'var(--bg-tertiary)', padding: '12px', borderRadius: 8, marginTop: 8 }}>
                           <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: 4 }}>Observaciones</p>
@@ -254,7 +313,6 @@ export default function ClientProfile({ clientId, onBack }: {
                         </div>
                       )}
 
-                      {/* Photos List */}
                       {record.images && record.images.length > 0 && (
                         <div style={{ display: 'flex', gap: 8, marginTop: 12, overflowX: 'auto' }}>
                           {record.images.map((img, i) => (
@@ -265,7 +323,6 @@ export default function ClientProfile({ clientId, onBack }: {
                         </div>
                       )}
 
-                      {/* Payment Method Badge */}
                       <div style={{ display: 'flex', marginTop: 12, gap: 8 }}>
                         <span className={`ios-badge ${record.paymentMethod === 'efectivo' ? 'cash' : record.paymentMethod === 'tarjeta' ? 'card' : 'transfer'}`}>
                           {record.paymentMethod === 'efectivo' ? '💵 Efectivo' : record.paymentMethod === 'tarjeta' ? '💳 Tarjeta' : '📱 Transferencia'}
@@ -280,13 +337,85 @@ export default function ClientProfile({ clientId, onBack }: {
         </div>
       </div>
 
+      {/* Edit Record Sheet */}
+      {editingRecord && (
+        <div className="ios-sheet-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setEditingRecord(null); }}>
+          <div className="ios-sheet" style={{ maxHeight: '90dvh', overflowY: 'auto' }}>
+            <div className="ios-sheet-handle" />
+            <div className="ios-sheet-header">
+              <button className="ios-btn-text" style={{ padding: 0 }} onClick={() => setEditingRecord(null)}>Cancelar</button>
+              <h2>Editar Registro</h2>
+              <div style={{ width: 68 }} />
+            </div>
+
+            <form onSubmit={handleSaveRecord} style={{ padding: '16px' }}>
+              <div className="ios-input-group" style={{ marginBottom: 20 }}>
+                <div className="ios-input-row">
+                  <label>Fecha</label>
+                  <input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} required max={new Date().toISOString().split('T')[0]} />
+                </div>
+                <div className="ios-input-row">
+                  <label>{editingRecord.category === 'peluqueria' ? 'Servicio' : 'Prenda'}</label>
+                  <input type="text" value={editServiceOrItem} onChange={(e) => setEditServiceOrItem(e.target.value)} required />
+                </div>
+                {editingRecord.category === 'ropa' && (
+                  <>
+                    <div className="ios-input-row">
+                      <label>Talle</label>
+                      <input type="text" value={editSize} onChange={(e) => setEditSize(e.target.value)} />
+                    </div>
+                    <div className="ios-input-row">
+                      <label>Color</label>
+                      <input type="text" value={editColor} onChange={(e) => setEditColor(e.target.value)} />
+                    </div>
+                  </>
+                )}
+                <div className="ios-input-row" style={{ alignItems: 'flex-start' }}>
+                  <label style={{ paddingTop: 8 }}>Notas</label>
+                  <textarea value={editObservations} onChange={(e) => setEditObservations(e.target.value)} placeholder="Fórmulas, observaciones..." />
+                </div>
+              </div>
+
+              <div className="ios-input-group" style={{ marginBottom: 24 }}>
+                <div className="ios-input-row">
+                  <label>Método</label>
+                  <select value={editPaymentMethod} onChange={(e) => setEditPaymentMethod(e.target.value as PaymentMethod)}>
+                    <option value="efectivo">💵 Efectivo</option>
+                    <option value="tarjeta">💳 Tarjeta</option>
+                    <option value="transferencia">📱 Transferencia</option>
+                  </select>
+                </div>
+                <div className="ios-input-row">
+                  <label>Estado</label>
+                  <div className="ios-segment sm" style={{ maxWidth: 200 }}>
+                    <button type="button" className={`ios-segment-btn ${editPaymentStatus === 'pagado' ? 'active' : ''}`} onClick={() => setEditPaymentStatus('pagado')}>Pagado</button>
+                    <button type="button" className={`ios-segment-btn ${editPaymentStatus === 'pendiente' ? 'active' : ''}`} onClick={() => setEditPaymentStatus('pendiente')} style={{ color: editPaymentStatus === 'pendiente' ? '#ff3b30' : '' }}>Debe</button>
+                  </div>
+                </div>
+                <div className="ios-input-row">
+                  <label>Monto</label>
+                  <div style={{ display: 'flex', alignItems: 'center', flex: 1, justifyContent: 'flex-end' }}>
+                    <span style={{ color: 'var(--text-tertiary)', marginRight: 4 }}>$</span>
+                    <input type="number" placeholder="0" value={editAmount} onChange={(e) => setEditAmount(e.target.value)} min="0" style={{ flex: 'none', width: '100px' }} />
+                  </div>
+                </div>
+              </div>
+
+              <button type="submit" className="ios-btn-primary" style={{ marginBottom: 16 }}>
+                Guardar Cambios
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Edit Profile Sheet */}
       {isEditingProfile && (
         <div className="ios-sheet-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setIsEditingProfile(false); }}>
           <div className="ios-sheet">
             <div className="ios-sheet-handle" />
             <div className="ios-sheet-header">
-              <button className="ios-btn-text" style={{ padding: 0, opacity: 0, pointerEvents: 'none' }}>Cancelar</button>
+              <button className="ios-btn-text" style={{ padding: 0, opacity: 0, pointerEvents: 'none' }}>_</button>
               <h2>Editar Clienta</h2>
               <button className="ios-btn-text" style={{ padding: 0 }} onClick={() => setIsEditingProfile(false)}>
                 Cancelar
@@ -297,34 +426,22 @@ export default function ClientProfile({ clientId, onBack }: {
               <div className="ios-input-group" style={{ marginBottom: 24 }}>
                 <div className="ios-input-row">
                   <label>Nombre</label>
-                  <input 
-                    type="text" 
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    required
-                  />
+                  <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} required autoFocus />
                 </div>
                 <div className="ios-input-row">
                   <label>Teléfono</label>
-                  <input 
-                    type="tel" 
-                    value={editPhone}
-                    onChange={(e) => setEditPhone(e.target.value)}
-                  />
+                  <input type="tel" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} placeholder="Ej: 11 1234-5678" />
                 </div>
               </div>
 
               <button type="submit" className="ios-btn-primary" style={{ marginBottom: 16 }}>
                 Guardar Cambios
               </button>
-              
-              <button 
-                type="button" 
+
+              <button
+                type="button"
                 onClick={handleDeleteClient}
-                style={{ 
-                  width: '100%', padding: '14px', background: 'transparent', 
-                  color: 'var(--danger)', border: 'none', fontSize: 17, fontWeight: 500, cursor: 'pointer' 
-                }}
+                style={{ width: '100%', padding: '14px', background: 'transparent', color: 'var(--danger)', border: 'none', fontSize: 17, fontWeight: 500, cursor: 'pointer' }}
               >
                 Eliminar Clienta
               </button>

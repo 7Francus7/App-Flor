@@ -13,28 +13,36 @@ import DashboardScreen from '@/components/DashboardScreen';
 import InventoryScreen from '@/components/InventoryScreen';
 import ExpensesScreen from '@/components/ExpensesScreen';
 
-type Tab = 'home' | 'clients' | 'add' | 'history' | 'dashboard';
-
 import { Suspense } from 'react';
+
+type Tab = 'home' | 'clients' | 'add' | 'history' | 'dashboard';
 
 function AppContent() {
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState<Tab>('home');
+  const initialAction = searchParams.get('action');
+  const [activeTab, setActiveTab] = useState<Tab>(initialAction === 'new_client' ? 'clients' : 'home');
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
-  const [showAddClient, setShowAddClient] = useState(false);
-  const [isAddingRecord, setIsAddingRecord] = useState(false);
+  const [showAddClient, setShowAddClient] = useState(initialAction === 'new_client');
+  const [isAddingRecord, setIsAddingRecord] = useState(initialAction === 'new_record');
   const [currentSubScreen, setCurrentSubScreen] = useState<'inventory' | 'expenses' | null>(null);
+  const [historyStatusFilter, setHistoryStatusFilter] = useState<'all' | 'pendiente' | 'pagado'>('all');
 
-  // Handle PWA shortcuts and deep links
   useEffect(() => {
     const action = searchParams.get('action');
-    if (action === 'new_record') {
-      setIsAddingRecord(true);
-    } else if (action === 'new_client') {
-      setActiveTab('clients');
-      setShowAddClient(true);
-    }
+    queueMicrotask(() => {
+      if (action === 'new_record') {
+        setIsAddingRecord(true);
+      } else if (action === 'new_client') {
+        setActiveTab('clients');
+        setShowAddClient(true);
+      }
+    });
   }, [searchParams]);
+
+  const goToDebtors = () => {
+    setHistoryStatusFilter('pendiente');
+    setActiveTab('history');
+  };
 
   // Router logic
   if (selectedClientId) {
@@ -51,11 +59,11 @@ function AppContent() {
 
   if (isAddingRecord || activeTab === 'add') {
     return (
-      <AddRecordScreen 
+      <AddRecordScreen
         onBack={() => {
           setIsAddingRecord(false);
           if (activeTab === 'add') setActiveTab('home');
-        }} 
+        }}
       />
     );
   }
@@ -63,34 +71,38 @@ function AppContent() {
   return (
     <>
       {activeTab === 'home' && (
-        <HomeScreen 
+        <HomeScreen
           onGoToClients={() => setActiveTab('clients')}
           onGoToAdd={() => setIsAddingRecord(true)}
           onGoToHistory={() => setActiveTab('history')}
           onClientSelect={setSelectedClientId}
         />
       )}
-      
+
       {activeTab === 'clients' && (
-        <ClientsScreen 
+        <ClientsScreen
           onClientSelect={setSelectedClientId}
           onAddNewClient={() => setShowAddClient(true)}
         />
       )}
-      
+
       {activeTab === 'history' && (
-        <HistoryScreen onClientSelect={setSelectedClientId} />
+        <HistoryScreen
+          onClientSelect={setSelectedClientId}
+          initialStatusFilter={historyStatusFilter}
+        />
       )}
 
       {activeTab === 'dashboard' && (
-        <DashboardScreen 
+        <DashboardScreen
           onGoToInventory={() => setCurrentSubScreen('inventory')}
           onGoToExpenses={() => setCurrentSubScreen('expenses')}
+          onGoToDebtors={goToDebtors}
         />
       )}
 
       {showAddClient && (
-        <AddClientSheet 
+        <AddClientSheet
           onClose={() => setShowAddClient(false)}
           onClientAdded={(id) => {
             setShowAddClient(false);
@@ -99,18 +111,19 @@ function AppContent() {
         />
       )}
 
-      <TabBar 
-        activeTab={activeTab} 
+      <TabBar
+        activeTab={activeTab}
         onTabChange={(tab) => {
           if (tab === 'add') {
             setIsAddingRecord(true);
           } else {
+            if (tab === 'history') setHistoryStatusFilter('all');
             setActiveTab(tab);
             setSelectedClientId(null);
             setIsAddingRecord(false);
             setCurrentSubScreen(null);
           }
-        }} 
+        }}
       />
     </>
   );

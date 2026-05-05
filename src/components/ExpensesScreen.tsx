@@ -1,12 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useStore } from '@/store/StoreContext';
+import { useToast } from '@/context/ToastContext';
 import { ChevronLeft, PlusIcon, TrashIcon, DollarIcon } from './Icons';
 import { Expense } from '@/types';
 
 export default function ExpensesScreen({ onBack }: { onBack: () => void }) {
   const { expenses, addExpense, deleteExpense } = useStore();
+  const { showToast } = useToast();
   const [showAddForm, setShowAddForm] = useState(false);
   
   // New Expense Form
@@ -27,7 +29,21 @@ export default function ExpensesScreen({ onBack }: { onBack: () => void }) {
     setShowAddForm(false);
   };
 
-  const sortedExpenses = [...expenses].sort((a, b) => b.date.localeCompare(a.date));
+  const sortedExpenses = useMemo(
+    () => [...expenses].sort((a, b) => b.date.localeCompare(a.date)),
+    [expenses]
+  );
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const totalMonth = useMemo(
+    () => expenses.filter((expense) => expense.date.startsWith(currentMonth)).reduce((sum, expense) => sum + expense.amount, 0),
+    [currentMonth, expenses]
+  );
+
+  const handleDeleteExpense = (expenseId: string, description: string) => {
+    if (!confirm(`¿Eliminar el gasto "${description}"?`)) return;
+    const undo = deleteExpense(expenseId);
+    showToast(`Gasto "${description}" eliminado`, undo);
+  };
 
   return (
     <div className="animate-slide-in" style={{ display: 'flex', flexDirection: 'column', height: '100dvh', background: 'var(--bg-primary)' }}>
@@ -42,6 +58,18 @@ export default function ExpensesScreen({ onBack }: { onBack: () => void }) {
       </div>
 
       <div className="screen-content" style={{ flex: 1, overflowY: 'auto', paddingBottom: '100px' }}>
+        {expenses.length > 0 && (
+          <div className="ios-card" style={{ padding: 18, marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 6 }}>Gasto acumulado del mes</p>
+              <p style={{ fontSize: 26, fontWeight: 700, color: '#ff3b30' }}>-${totalMonth.toLocaleString('es-AR')}</p>
+            </div>
+            <div style={{ width: 42, height: 42, borderRadius: '50%', background: '#ff3b3015', color: '#ff3b30', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <DollarIcon size={18} />
+            </div>
+          </div>
+        )}
+
         {expenses.length === 0 ? (
           <div className="ios-empty">
             <DollarIcon size={48} style={{ opacity: 0.2, marginBottom: 16 }} />
@@ -61,7 +89,7 @@ export default function ExpensesScreen({ onBack }: { onBack: () => void }) {
                 <div style={{ textAlign: 'right', marginRight: 12 }}>
                   <p style={{ fontWeight: 700, color: '#ff3b30' }}>-${e.amount.toLocaleString('es-AR')}</p>
                 </div>
-                <button className="ios-btn-icon" style={{ color: 'var(--text-tertiary)' }} onClick={() => deleteExpense(e.id)}>
+                <button className="ios-btn-icon" style={{ color: 'var(--text-tertiary)' }} onClick={() => handleDeleteExpense(e.id, e.description)}>
                   <TrashIcon size={18} />
                 </button>
               </div>

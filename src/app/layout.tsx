@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { StoreProvider } from "@/store/StoreContext";
+import { ToastProvider } from "@/context/ToastContext";
 
 export const metadata: Metadata = {
   title: "INDOOR — Gestión",
@@ -23,6 +24,7 @@ export const viewport: Viewport = {
 
 import { InstallBanner } from "@/components/pwa/InstallBanner";
 import { OfflineIndicator } from "@/components/pwa/OfflineIndicator";
+import { SyncErrorBanner } from "@/components/SyncErrorBanner";
 
 export default function RootLayout({
   children,
@@ -32,13 +34,16 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body>
-        <StoreProvider>
-          <div className="app-container">
-            <InstallBanner />
-            {children}
-            <OfflineIndicator />
-          </div>
-        </StoreProvider>
+        <ToastProvider>
+          <StoreProvider>
+            <div className="app-container">
+              <InstallBanner />
+              {children}
+              <SyncErrorBanner />
+              <OfflineIndicator />
+            </div>
+          </StoreProvider>
+        </ToastProvider>
       </body>
     </html>
   );
