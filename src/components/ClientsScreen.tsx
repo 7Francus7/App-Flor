@@ -17,7 +17,17 @@ export default function ClientsScreen({ onClientSelect, onAddNewClient }: {
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100dvh' }}>
       {/* Sticky Header with Search */}
       <div className="ios-nav" style={{ padding: '16px 16px 12px' }}>
-        <h1 className="ios-nav-title" style={{ marginBottom: 16 }}>Clientas</h1>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <h1 className="ios-nav-title">Clientas</h1>
+          <button
+            className="ios-btn-icon"
+            onClick={onAddNewClient}
+            title="Agregar clienta"
+            aria-label="Agregar clienta"
+          >
+            <PlusIcon size={22} />
+          </button>
+        </div>
         <div className="ios-search">
           <SearchIcon size={18} />
           <input

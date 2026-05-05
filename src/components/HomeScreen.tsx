@@ -3,7 +3,6 @@
 import React from 'react';
 import { useStore } from '@/store/StoreContext';
 import { ScissorsIcon, ShirtIcon, ClockIcon, UsersIcon, SunIcon, MoonIcon } from './Icons';
-import { ServiceCategory } from '@/types';
 
 export default function HomeScreen({ onGoToClients, onGoToAdd, onGoToHistory, onClientSelect }: {
   onGoToClients: () => void;
@@ -151,7 +150,7 @@ export default function HomeScreen({ onGoToClients, onGoToAdd, onGoToHistory, on
                     {client?.name || 'Clienta eliminada'}
                   </p>
                   <p style={{ fontSize: 13, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {isSalon ? (record as any).service : `${(record as any).item} · ${(record as any).color}`}
+                    {isSalon ? record.service : `${record.item} · ${record.color}`}
                   </p>
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>

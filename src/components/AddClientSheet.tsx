@@ -31,7 +31,14 @@ export default function AddClientSheet({ onClose, onClientAdded }: {
         <div className="ios-sheet-header">
           <button className="ios-btn-text" style={{ padding: 0, opacity: 0, pointerEvents: 'none' }}>Cancelar</button>
           <h2>Nueva Clienta</h2>
-          <button className="ios-btn-text" style={{ padding: 0 }} onClick={onClose}>
+          <button
+            className="ios-btn-text"
+            style={{ padding: 0 }}
+            onClick={onClose}
+            type="button"
+            aria-label="Cerrar nueva clienta"
+            title="Cerrar"
+          >
             <XIcon size={20} />
           </button>
         </div>

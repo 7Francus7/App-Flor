@@ -3,7 +3,14 @@
 import { db } from '@/db';
 import { clients, records, expenses, products } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
-import { Client, ClientRecord, SalonRecord, ClothingRecord, Expense, Product } from '@/types';
+import {
+  ClothingRecord,
+  Expense,
+  PaymentMethod,
+  PaymentStatus,
+  Product,
+  SalonRecord,
+} from '@/types';
 
 // =======================
 // Clients Actions
@@ -52,8 +59,8 @@ export async function getDbRecords() {
       id: r.id,
       clientId: r.clientId,
       date: r.date,
-      paymentMethod: r.paymentMethod as any,
-      paymentStatus: r.paymentStatus as any,
+      paymentMethod: r.paymentMethod as PaymentMethod,
+      paymentStatus: r.paymentStatus as PaymentStatus,
       amount: r.amount ? Number(r.amount) : 0,
       observations: r.observations || '',
       images: r.images ? JSON.parse(r.images) : [],
@@ -124,6 +131,22 @@ export async function addDbClothingRecord(clientId: string, data: Omit<ClothingR
   } as ClothingRecord;
 }
 
+export async function updateDbRecord(id: string, data: {
+  date?: string;
+  serviceOrItem?: string;
+  size?: string;
+  color?: string;
+  paymentMethod?: PaymentMethod;
+  paymentStatus?: PaymentStatus;
+  amount?: number;
+  observations?: string;
+}) {
+  await db.update(records).set({
+    ...data,
+    amount: data.amount !== undefined ? data.amount.toString() : undefined,
+  }).where(eq(records.id, id));
+}
+
 export async function deleteDbRecord(id: string) {
   await db.delete(records).where(eq(records.id, id));
 }
@@ -181,8 +204,16 @@ export async function addDbProduct(data: Omit<Product, 'id' | 'createdAt'>) {
 }
 
 export async function updateDbProduct(id: string, data: Partial<Omit<Product, 'id' | 'createdAt'>>) {
-  const updateData: any = { ...data };
-  if (data.price !== undefined) updateData.price = data.price.toString();
+  const updateData: {
+    name?: string;
+    description?: string;
+    price?: string;
+    stock?: number;
+    category?: string;
+    size?: string;
+    color?: string;
+  } = { ...data, price: data.price?.toString() };
+
   await db.update(products).set(updateData).where(eq(products.id, id));
 }
 

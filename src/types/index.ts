@@ -74,6 +74,19 @@ export interface Product {
   createdAt: string;
 }
 
+export interface RecordUpdateData {
+  date?: string;
+  service?: string;
+  item?: string;
+  size?: string;
+  color?: string;
+  paymentMethod?: PaymentMethod;
+  paymentStatus?: PaymentStatus;
+  amount?: number;
+  observations?: string;
+  images?: string[];
+}
+
 // Para los formularios
 export interface SalonFormData {
   service: string;
