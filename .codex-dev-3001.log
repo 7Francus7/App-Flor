@@ -1,0 +1,99 @@
+
+> sistema-flor@0.1.0 dev
+> next dev --webpack --hostname 127.0.0.1 --port 3001
+
+▲ Next.js 16.2.4 (webpack)
+- Local:         http://127.0.0.1:3001
+- Network:       http://127.0.0.1:3001
+- Environments: .env.local
+✓ Ready in 1426ms
+ ○ (pwa) PWA support is disabled.
+
+○ Compiling / ...
+ GET / 200 in 4.5s (next.js: 3.8s, application-code: 680ms)
+ GET / 200 in 145ms (next.js: 9ms, application-code: 136ms)
+ GET / 200 in 138ms (next.js: 7ms, application-code: 131ms)
+ POST / 200 in 1583ms (next.js: 6ms, application-code: 1577ms)
+  └─ ƒ getDbClients() in 1432ms ..//src/actions/dbActions.ts
+ POST / 200 in 235ms (next.js: 8ms, application-code: 227ms)
+  └─ ƒ getDbRecords() in 205ms ..//src/actions/dbActions.ts
+ POST / 200 in 209ms (next.js: 4ms, application-code: 205ms)
+  └─ ƒ getDbExpenses() in 192ms ..//src/actions/dbActions.ts
+ POST / 200 in 217ms (next.js: 5ms, application-code: 212ms)
+  └─ ƒ getDbProducts() in 195ms ..//src/actions/dbActions.ts
+ GET / 200 in 93ms (next.js: 6ms, application-code: 87ms)
+ GET / 200 in 71ms (next.js: 5ms, application-code: 66ms)
+ GET / 200 in 102ms (next.js: 5ms, application-code: 97ms)
+ POST / 200 in 1366ms (next.js: 8ms, application-code: 1358ms)
+  └─ ƒ getDbClients() in 1341ms ..//src/actions/dbActions.ts
+ POST / 200 in 282ms (next.js: 3ms, application-code: 278ms)
+  └─ ƒ getDbRecords() in 266ms ..//src/actions/dbActions.ts
+ POST / 200 in 371ms (next.js: 3ms, application-code: 368ms)
+  └─ ƒ getDbExpenses() in 354ms ..//src/actions/dbActions.ts
+ POST / 200 in 387ms (next.js: 4ms, application-code: 382ms)
+  └─ ƒ getDbProducts() in 369ms ..//src/actions/dbActions.ts
+ GET / 200 in 73ms (next.js: 4ms, application-code: 69ms)
+ POST / 200 in 65ms (next.js: 5ms, application-code: 60ms)
+ GET / 200 in 85ms (next.js: 4ms, application-code: 81ms)
+ POST / 200 in 569ms (next.js: 5ms, application-code: 564ms)
+  └─ ƒ getDbClients() in 549ms ..//src/actions/dbActions.ts
+ POST / 200 in 206ms (next.js: 3ms, application-code: 203ms)
+  └─ ƒ getDbRecords() in 191ms ..//src/actions/dbActions.ts
+ POST / 200 in 197ms (next.js: 3ms, application-code: 193ms)
+  └─ ƒ getDbExpenses() in 182ms ..//src/actions/dbActions.ts
+ POST / 200 in 198ms (next.js: 3ms, application-code: 195ms)
+  └─ ƒ getDbProducts() in 186ms ..//src/actions/dbActions.ts
+ GET / 200 in 83ms (next.js: 4ms, application-code: 79ms)
+ POST / 200 in 576ms (next.js: 5ms, application-code: 571ms)
+  └─ ƒ getDbClients() in 558ms ..//src/actions/dbActions.ts
+ POST / 200 in 198ms (next.js: 4ms, application-code: 195ms)
+  └─ ƒ getDbRecords() in 183ms ..//src/actions/dbActions.ts
+ POST / 200 in 196ms (next.js: 3ms, application-code: 193ms)
+  └─ ƒ getDbExpenses() in 181ms ..//src/actions/dbActions.ts
+ POST / 200 in 195ms (next.js: 3ms, application-code: 192ms)
+  └─ ƒ getDbProducts() in 181ms ..//src/actions/dbActions.ts
+ GET / 200 in 369ms (next.js: 139ms, application-code: 230ms)
+ POST / 200 in 1868ms (next.js: 5ms, application-code: 1863ms)
+  └─ ƒ getDbClients() in 1754ms ..//src/actions/dbActions.ts
+ POST / 200 in 361ms (next.js: 4ms, application-code: 357ms)
+  └─ ƒ getDbRecords() in 345ms ..//src/actions/dbActions.ts
+ POST / 200 in 270ms (next.js: 2ms, application-code: 268ms)
+  └─ ƒ getDbExpenses() in 259ms ..//src/actions/dbActions.ts
+ POST / 200 in 254ms (next.js: 2ms, application-code: 252ms)
+  └─ ƒ getDbProducts() in 240ms ..//src/actions/dbActions.ts
+ GET / 200 in 439ms (next.js: 158ms, application-code: 282ms)
+ POST / 200 in 624ms (next.js: 5ms, application-code: 619ms)
+  └─ ƒ getDbClients() in 564ms ..//src/actions/dbActions.ts
+ POST / 200 in 201ms (next.js: 4ms, application-code: 197ms)
+  └─ ƒ getDbRecords() in 183ms ..//src/actions/dbActions.ts
+ POST / 200 in 203ms (next.js: 4ms, application-code: 200ms)
+  └─ ƒ getDbExpenses() in 189ms ..//src/actions/dbActions.ts
+ POST / 200 in 201ms (next.js: 4ms, application-code: 197ms)
+  └─ ƒ getDbProducts() in 184ms ..//src/actions/dbActions.ts
+ GET / 200 in 174ms (next.js: 7ms, application-code: 168ms)
+ POST / 200 in 595ms (next.js: 5ms, application-code: 591ms)
+  └─ ƒ getDbClients() in 573ms ..//src/actions/dbActions.ts
+ POST / 200 in 226ms (next.js: 5ms, application-code: 221ms)
+  └─ ƒ getDbRecords() in 206ms ..//src/actions/dbActions.ts
+ POST / 200 in 205ms (next.js: 4ms, application-code: 201ms)
+  └─ ƒ getDbExpenses() in 186ms ..//src/actions/dbActions.ts
+ POST / 200 in 209ms (next.js: 4ms, application-code: 205ms)
+  └─ ƒ getDbProducts() in 188ms ..//src/actions/dbActions.ts
+ GET / 200 in 78ms (next.js: 4ms, application-code: 73ms)
+ POST / 200 in 566ms (next.js: 5ms, application-code: 561ms)
+  └─ ƒ getDbClients() in 549ms ..//src/actions/dbActions.ts
+ POST / 200 in 201ms (next.js: 4ms, application-code: 197ms)
+  └─ ƒ getDbRecords() in 185ms ..//src/actions/dbActions.ts
+ POST / 200 in 259ms (next.js: 3ms, application-code: 257ms)
+  └─ ƒ getDbExpenses() in 246ms ..//src/actions/dbActions.ts
+ POST / 200 in 289ms (next.js: 3ms, application-code: 286ms)
+  └─ ƒ getDbProducts() in 274ms ..//src/actions/dbActions.ts
+ GET / 200 in 139ms (next.js: 6ms, application-code: 133ms)
+ POST / 200 in 659ms (next.js: 7ms, application-code: 652ms)
+  └─ ƒ getDbClients() in 630ms ..//src/actions/dbActions.ts
+ POST / 200 in 196ms (next.js: 4ms, application-code: 192ms)
+  └─ ƒ getDbRecords() in 181ms ..//src/actions/dbActions.ts
+ POST / 200 in 196ms (next.js: 4ms, application-code: 192ms)
+  └─ ƒ getDbExpenses() in 180ms ..//src/actions/dbActions.ts
+ POST / 200 in 202ms (next.js: 3ms, application-code: 199ms)
+  └─ ƒ getDbProducts() in 187ms ..//src/actions/dbActions.ts
