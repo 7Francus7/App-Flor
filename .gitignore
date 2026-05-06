@@ -42,3 +42,5 @@ next-env.d.ts
 
 # Codex dev artifacts
 .codex-*
+
+.vercel

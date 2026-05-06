@@ -695,6 +695,17 @@ body {
 }
 
 /* ============================================================
+   Home screen two-panel layout (mobile: stacked, iPad: side-by-side)
+   ============================================================ */
+.home-layout {
+  display: flex;
+  flex-direction: column;
+}
+
+.home-left {}
+.home-right {}
+
+/* ============================================================
    Stats grid (responsive columns)
    ============================================================ */
 .stats-grid {
@@ -723,9 +734,9 @@ body {
    Responsive: Tablet (iPads, tablets — 768px to 1199px)
    ============================================================ */
 @media (min-width: 768px) {
-  /* Tablet: use most of the screen with a comfortable max-width */
+  /* Tablet: wider container to use iPad screen properly */
   .app-container {
-    max-width: 760px;
+    max-width: 960px;
     margin: 0 auto;
     min-height: 100dvh;
     position: relative;
@@ -733,12 +744,30 @@ body {
 
   /* Screen content: wider padding on tablet */
   .screen-content {
-    padding: 0 32px 24px;
+    padding: 0 28px 24px;
   }
 
   /* Stats grid: still 2 columns but with room */
   .stats-grid {
     grid-template-columns: 1fr 1fr;
+  }
+
+  /* Home: two-column layout on iPad */
+  .home-layout {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 28px;
+    align-items: start;
+  }
+
+  .home-left {
+    position: sticky;
+    top: 16px;
+  }
+
+  .home-right .ios-section-header {
+    padding-top: 4px;
+    padding-left: 0;
   }
 
   /* History cards: 2-column grid on tablet */
@@ -900,6 +929,16 @@ body {
    Phone simulation in a centered container
    ============================================================ */
 @media (min-width: 1200px) {
+  /* Desktop phone simulation: revert home layout to single column */
+  .home-layout {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .home-left {
+    position: static;
+  }
+
   .app-container {
     max-width: 430px;
     margin: 0 auto;
