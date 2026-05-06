@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useStore } from '@/store/StoreContext';
 import { useToast } from '@/context/ToastContext';
-import { ChevronLeft, ScissorsIcon, ShirtIcon, TrashIcon, PaletteIcon, EditIcon, CheckIcon } from './Icons';
+import { ChevronLeft, ScissorsIcon, ShirtIcon, TrashIcon, PaletteIcon, EditIcon, CheckIcon, WhatsAppIcon, ClockIcon, SendIcon, NoteIcon, DollarIcon, CreditCardIcon, PhoneIcon } from './Icons';
 import { ClientRecord, PaymentMethod, RecordUpdateData, ServiceCategory } from '@/types';
 
 export default function ClientProfile({ clientId, onBack }: {
@@ -178,17 +178,17 @@ export default function ClientProfile({ clientId, onBack }: {
         {/* WhatsApp Actions */}
         {client.phone && (
           <div style={{ padding: '16px', display: 'flex', gap: 8, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-            <button onClick={() => handleWhatsAppAction('directo')} className="ios-btn-secondary" style={{ flexShrink: 0, padding: '8px 14px', fontSize: 13, background: '#25D36615', color: '#25D366', borderColor: '#25D36630' }}>
-              💬 Chatear
+            <button onClick={() => handleWhatsAppAction('directo')} className="ios-btn-secondary" style={{ flexShrink: 0, padding: '8px 14px', fontSize: 13, background: '#25D36615', color: '#25D366', borderColor: '#25D36630', gap: 5 }}>
+              <WhatsAppIcon size={14} /> Chatear
             </button>
-            <button onClick={() => handleWhatsAppAction('recordar')} className="ios-btn-secondary" style={{ flexShrink: 0, padding: '8px 14px', fontSize: 13 }}>
-              ⏰ Recordar Turno
+            <button onClick={() => handleWhatsAppAction('recordar')} className="ios-btn-secondary" style={{ flexShrink: 0, padding: '8px 14px', fontSize: 13, gap: 5 }}>
+              <ClockIcon size={14} /> Recordar
             </button>
-            <button onClick={() => handleWhatsAppAction('agradecer')} className="ios-btn-secondary" style={{ flexShrink: 0, padding: '8px 14px', fontSize: 13 }}>
-              🤍 Agradecer
+            <button onClick={() => handleWhatsAppAction('agradecer')} className="ios-btn-secondary" style={{ flexShrink: 0, padding: '8px 14px', fontSize: 13, gap: 5 }}>
+              <CheckIcon size={14} /> Agradecer
             </button>
-            <button onClick={() => handleWhatsAppAction('ficha')} className="ios-btn-secondary" style={{ flexShrink: 0, padding: '8px 14px', fontSize: 13 }}>
-              📄 Enviar Ficha
+            <button onClick={() => handleWhatsAppAction('ficha')} className="ios-btn-secondary" style={{ flexShrink: 0, padding: '8px 14px', fontSize: 13, gap: 5 }}>
+              <NoteIcon size={14} /> Ficha
             </button>
           </div>
         )}
@@ -332,7 +332,11 @@ export default function ClientProfile({ clientId, onBack }: {
 
                       <div style={{ display: 'flex', marginTop: 12, gap: 8 }}>
                         <span className={`ios-badge ${record.paymentMethod === 'efectivo' ? 'cash' : record.paymentMethod === 'tarjeta' ? 'card' : 'transfer'}`}>
-                          {record.paymentMethod === 'efectivo' ? '💵 Efectivo' : record.paymentMethod === 'tarjeta' ? '💳 Tarjeta' : '📱 Transferencia'}
+                          {record.paymentMethod === 'efectivo'
+                            ? <><DollarIcon size={11} /> Efectivo</>
+                            : record.paymentMethod === 'tarjeta'
+                            ? <><CreditCardIcon size={11} /> Tarjeta</>
+                            : <><PhoneIcon size={11} /> Transferencia</>}
                         </span>
                       </div>
                     </div>
@@ -387,9 +391,9 @@ export default function ClientProfile({ clientId, onBack }: {
                 <div className="ios-input-row">
                   <label>Método</label>
                   <select value={editPaymentMethod} onChange={(e) => setEditPaymentMethod(e.target.value as PaymentMethod)}>
-                    <option value="efectivo">💵 Efectivo</option>
-                    <option value="tarjeta">💳 Tarjeta</option>
-                    <option value="transferencia">📱 Transferencia</option>
+                    <option value="efectivo">Efectivo</option>
+                    <option value="tarjeta">Tarjeta</option>
+                    <option value="transferencia">Transferencia</option>
                   </select>
                 </div>
                 <div className="ios-input-row">

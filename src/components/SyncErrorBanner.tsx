@@ -1,6 +1,7 @@
 'use client';
 
 import { useStore } from '@/store/StoreContext';
+import { WarningIcon } from './Icons';
 
 export function SyncErrorBanner() {
   const { syncError } = useStore();
@@ -28,7 +29,7 @@ export function SyncErrorBanner() {
         WebkitBackdropFilter: 'blur(10px)',
       }}
     >
-      ⚠️ Sin conexión con la base de datos — datos locales activos
+      <WarningIcon size={15} /> Sin conexión con la base de datos — datos locales activos
     </div>
   );
 }

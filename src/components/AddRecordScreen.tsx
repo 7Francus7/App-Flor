@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState, useRef } from 'react';
 import { useStore } from '@/store/StoreContext';
-import { ChevronLeft, CameraIcon, XIcon } from './Icons';
+import { ChevronLeft, CameraIcon, XIcon, ScissorsIcon, ShirtIcon, DollarIcon, CreditCardIcon, PhoneIcon } from './Icons';
 import { PaymentMethod, ServiceCategory } from '@/types';
 import AddClientSheet from './AddClientSheet';
 
@@ -131,15 +131,17 @@ export default function AddRecordScreen({ onBack, defaultCategory = 'peluqueria'
             type="button"
             className={`ios-segment-btn ${category === 'peluqueria' ? 'active' : ''}`}
             onClick={() => handleCategoryChange('peluqueria')}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
           >
-            ✂️ Peluquería
+            <ScissorsIcon size={14} /> Peluquería
           </button>
           <button
             type="button"
             className={`ios-segment-btn ${category === 'ropa' ? 'active' : ''}`}
             onClick={() => handleCategoryChange('ropa')}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
           >
-            👗 Tienda
+            <ShirtIcon size={14} /> Tienda
           </button>
         </div>
 
@@ -248,9 +250,9 @@ export default function AddRecordScreen({ onBack, defaultCategory = 'peluqueria'
             <div className="ios-input-row">
               <label>Método</label>
               <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}>
-                <option value="efectivo">💵 Efectivo</option>
-                <option value="tarjeta">💳 Tarjeta</option>
-                <option value="transferencia">📱 Transferencia</option>
+                <option value="efectivo">Efectivo</option>
+                <option value="tarjeta">Tarjeta</option>
+                <option value="transferencia">Transferencia</option>
               </select>
             </div>
             <div className="ios-input-row">
