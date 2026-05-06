@@ -59,14 +59,16 @@ export default function HomeScreen({ onGoToClients, onGoToAdd, onGoToHistory, on
               <button
                 className={`ios-segment-btn ${activeCategory === 'peluqueria' ? 'active' : ''}`}
                 onClick={() => setActiveCategory('peluqueria')}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
               >
-                ✂️ Peluquería
+                <ScissorsIcon size={14} /> Peluquería
               </button>
               <button
                 className={`ios-segment-btn ${activeCategory === 'ropa' ? 'active' : ''}`}
                 onClick={() => setActiveCategory('ropa')}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
               >
-                👗 Tienda de Ropa
+                <ShirtIcon size={14} /> Tienda de Ropa
               </button>
             </div>
           </div>
