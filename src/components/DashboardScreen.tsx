@@ -262,20 +262,36 @@ export default function DashboardScreen({
 
       <div className="action-buttons-grid">
         <button
-          className="ios-btn-secondary"
-          style={{ justifyContent: 'flex-start', padding: '16px' }}
+          className="ios-card"
+          style={{ display: 'flex', alignItems: 'center', padding: '16px 20px', cursor: 'pointer', border: 'none', width: '100%', textAlign: 'left', gap: 14, transition: 'opacity 0.15s' }}
           onClick={onGoToInventory}
+          onMouseEnter={e => (e.currentTarget.style.opacity = '0.8')}
+          onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
         >
-          <PackageIcon size={20} style={{ marginRight: 12, color: 'var(--accent)' }} />
-          <span>Gestionar Inventario de Ropa</span>
+          <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--cat-clothing-bg)', color: 'var(--cat-clothing)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <PackageIcon size={22} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'inherit', letterSpacing: '-0.01em' }}>Inventario</p>
+            <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 1 }}>Gestionar stock de ropa</p>
+          </div>
+          <span style={{ color: 'var(--text-tertiary)', fontSize: 18, fontWeight: 300 }}>›</span>
         </button>
         <button
-          className="ios-btn-secondary"
-          style={{ justifyContent: 'flex-start', padding: '16px' }}
+          className="ios-card"
+          style={{ display: 'flex', alignItems: 'center', padding: '16px 20px', cursor: 'pointer', border: 'none', width: '100%', textAlign: 'left', gap: 14, transition: 'opacity 0.15s' }}
           onClick={onGoToExpenses}
+          onMouseEnter={e => (e.currentTarget.style.opacity = '0.8')}
+          onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
         >
-          <DollarIcon size={20} style={{ marginRight: 12, color: '#ff3b30' }} />
-          <span>Registrar Gasto del Negocio</span>
+          <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(255,59,48,0.08)', color: '#ff3b30', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <DollarIcon size={22} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'inherit', letterSpacing: '-0.01em' }}>Gastos</p>
+            <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 1 }}>Registrar gasto del negocio</p>
+          </div>
+          <span style={{ color: 'var(--text-tertiary)', fontSize: 18, fontWeight: 300 }}>›</span>
         </button>
       </div>
     </div>
