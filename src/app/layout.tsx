@@ -24,6 +24,7 @@ export const viewport: Viewport = {
 
 import { InstallBanner } from "@/components/pwa/InstallBanner";
 import { OfflineIndicator } from "@/components/pwa/OfflineIndicator";
+import { PWAUpdateHandler } from "@/components/pwa/PWAUpdateHandler";
 import { SyncErrorBanner } from "@/components/SyncErrorBanner";
 
 export default function RootLayout({
@@ -37,6 +38,7 @@ export default function RootLayout({
         <ToastProvider>
           <StoreProvider>
             <div className="app-container">
+              <PWAUpdateHandler />
               <InstallBanner />
               {children}
               <SyncErrorBanner />
