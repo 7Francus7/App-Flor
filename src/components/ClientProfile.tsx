@@ -148,23 +148,28 @@ export default function ClientProfile({ clientId, onBack }: {
 
       <div style={{ flex: 1, overflowY: 'auto', paddingBottom: '100px' }}>
         {/* Profile Header */}
-        <div style={{ padding: '24px 16px', textAlign: 'center', background: 'var(--bg-secondary)', borderBottom: '0.5px solid var(--separator-opaque)' }}>
-          <div className="ios-avatar lg" style={{ background: 'var(--accent-bg)', color: 'var(--accent-deep)', margin: '0 auto 16px' }}>
+        <div style={{ padding: '28px 16px 24px', textAlign: 'center', background: 'var(--bg-secondary)', borderBottom: '0.5px solid var(--separator-opaque)' }}>
+          <div className="ios-avatar lg" style={{
+            background: 'linear-gradient(135deg, var(--accent-bg) 0%, rgba(212,160,160,0.2) 100%)',
+            color: 'var(--accent-deep)',
+            margin: '0 auto 16px',
+            fontSize: 36,
+            boxShadow: '0 4px 16px rgba(212,160,160,0.25)',
+          }}>
             {client.name.charAt(0).toUpperCase()}
           </div>
-          <h2 style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 4 }}>
+          <h2 style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 20 }}>
             {client.name}
           </h2>
-
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginTop: 12 }}>
-            <div style={{ textAlign: 'center' }}>
-              <p style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Visitas</p>
-              <p style={{ fontSize: 20, fontWeight: 700, color: 'var(--accent)' }}>{totalVisits}</p>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 12 }}>
+            <div style={{ background: 'var(--accent-bg)', borderRadius: 14, padding: '12px 24px', minWidth: 84 }}>
+              <p style={{ fontSize: 26, fontWeight: 700, color: 'var(--accent)', lineHeight: 1 }}>{totalVisits}</p>
+              <p style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: 4 }}>Visitas</p>
             </div>
             {pendingDebt > 0 && (
-              <div style={{ textAlign: 'center' }}>
-                <p style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Debe</p>
-                <p style={{ fontSize: 20, fontWeight: 700, color: '#ff3b30' }}>${pendingDebt.toLocaleString('es-AR')}</p>
+              <div style={{ background: 'rgba(255,59,48,0.07)', borderRadius: 14, padding: '12px 24px', minWidth: 84 }}>
+                <p style={{ fontSize: 18, fontWeight: 700, color: '#ff3b30', lineHeight: 1 }}>${pendingDebt.toLocaleString('es-AR')}</p>
+                <p style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: 4 }}>Debe</p>
               </div>
             )}
           </div>
@@ -246,17 +251,19 @@ export default function ClientProfile({ clientId, onBack }: {
                   <div key={record.id} className="ios-card" style={{ position: 'relative', border: record.paymentStatus === 'pendiente' ? '1px solid #ff3b3050' : 'none' }}>
                     {/* Header */}
                     <div style={{ padding: '12px 16px', borderBottom: '0.5px solid var(--separator-opaque)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        <div className={`ios-badge ${isSalon ? 'salon' : 'clothing'}`}>
-                          {isSalon ? <ScissorsIcon size={12} /> : <ShirtIcon size={12} />}
-                          {isSalon ? 'Peluquería' : 'Tienda'}
-                        </div>
-                        {record.paymentStatus === 'pendiente' && (
-                          <div className="ios-badge" style={{ background: '#ff3b3015', color: '#ff3b30', fontWeight: 700 }}>DEBE</div>
-                        )}
-                        <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>
+                      <div>
+                        <p style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500, marginBottom: 5 }}>
                           {formatDate(record.date)}
-                        </span>
+                        </p>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <div className={`ios-badge ${isSalon ? 'salon' : 'clothing'}`}>
+                            {isSalon ? <ScissorsIcon size={12} /> : <ShirtIcon size={12} />}
+                            {isSalon ? 'Peluquería' : 'Tienda'}
+                          </div>
+                          {record.paymentStatus === 'pendiente' && (
+                            <div className="ios-badge" style={{ background: '#ff3b3015', color: '#ff3b30', fontWeight: 700 }}>DEBE</div>
+                          )}
+                        </div>
                       </div>
                       <div style={{ display: 'flex', gap: 4 }}>
                         {record.paymentStatus === 'pendiente' && (

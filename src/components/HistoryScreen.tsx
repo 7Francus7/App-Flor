@@ -27,10 +27,26 @@ export default function HistoryScreen({
     return result;
   }, [records, getClient, filter, statusFilter]);
 
-  const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr + 'T12:00:00');
-    return d.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' });
-  };
+  const groupedRecords = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0];
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const map = new Map<string, typeof displayRecords>();
+    for (const r of displayRecords) {
+      if (!map.has(r.date)) map.set(r.date, []);
+      map.get(r.date)!.push(r);
+    }
+    return Array.from(map.entries()).map(([dateStr, items]) => {
+      let label: string;
+      if (dateStr === today) label = 'Hoy';
+      else if (dateStr === yesterday) label = 'Ayer';
+      else {
+        const d = new Date(dateStr + 'T12:00:00');
+        label = d.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+      }
+      const total = items.reduce((sum, r) => sum + r.amount, 0);
+      return { label, dateStr, total, items };
+    });
+  }, [displayRecords]);
 
   const handleExport = () => {
     exportRecordsToCsv(displayRecords, (id) => getClient(id)?.name ?? 'Clienta eliminada');
@@ -83,7 +99,7 @@ export default function HistoryScreen({
       </div>
 
       <div className="screen-content" style={{ flex: 1, overflowY: 'auto', paddingBottom: '100px' }}>
-        {displayRecords.length === 0 ? (
+        {groupedRecords.length === 0 ? (
           <div className="ios-empty">
             <div className="ios-empty-icon">
               <ClockIcon size={24} />
@@ -92,53 +108,61 @@ export default function HistoryScreen({
             <p>No hay servicios ni ventas en esta categoría.</p>
           </div>
         ) : (
-          <div className="ios-list-group">
-            {displayRecords.map((record) => {
-              const client = getClient(record.clientId);
-              const isSalon = record.category === 'peluqueria';
-
-              return (
-                <div
-                  key={record.id}
-                  className="ios-list-item"
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => onClientSelect(record.clientId)}
-                >
-                  <div className="ios-avatar sm" style={{
-                    background: isSalon ? 'var(--cat-salon-bg)' : 'var(--cat-clothing-bg)',
-                    color: isSalon ? 'var(--cat-salon)' : 'var(--cat-clothing)',
-                  }}>
-                    {isSalon ? <ScissorsIcon size={16} /> : <ShirtIcon size={16} />}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
-                      {client?.name ?? 'Clienta eliminada'}
-                    </p>
-                    <p style={{ fontSize: 13, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {isSalon ? record.service : `${record.item} · ${record.color}`}
-                    </p>
-                  </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                      {formatDate(record.date)}
-                    </p>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
-                      {record.amount > 0 && (
-                        <p style={{ fontSize: 13, fontWeight: 600, color: record.paymentStatus === 'pendiente' ? '#ff3b30' : 'var(--text-primary)' }}>
-                          ${record.amount.toLocaleString('es-AR')}
+          groupedRecords.map(group => (
+            <div key={group.dateStr} style={{ marginBottom: 24 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8, padding: '0 2px' }}>
+                <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  {group.label}
+                </p>
+                {group.total > 0 && (
+                  <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)' }}>
+                    ${group.total.toLocaleString('es-AR')}
+                  </p>
+                )}
+              </div>
+              <div className="ios-list-group">
+                {group.items.map((record) => {
+                  const client = getClient(record.clientId);
+                  const isSalon = record.category === 'peluqueria';
+                  return (
+                    <div
+                      key={record.id}
+                      className="ios-list-item"
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => onClientSelect(record.clientId)}
+                    >
+                      <div className="ios-avatar sm" style={{
+                        background: isSalon ? 'var(--cat-salon-bg)' : 'var(--cat-clothing-bg)',
+                        color: isSalon ? 'var(--cat-salon)' : 'var(--cat-clothing)',
+                      }}>
+                        {isSalon ? <ScissorsIcon size={16} /> : <ShirtIcon size={16} />}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
+                          {client?.name ?? 'Clienta eliminada'}
                         </p>
-                      )}
-                      {record.paymentStatus === 'pendiente' && (
-                        <span style={{ fontSize: 10, fontWeight: 700, color: '#ff3b30', background: '#ff3b3015', padding: '1px 6px', borderRadius: 4 }}>
-                          DEBE
-                        </span>
-                      )}
+                        <p style={{ fontSize: 13, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {isSalon ? record.service : `${record.item} · ${record.color}`}
+                        </p>
+                      </div>
+                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                        {record.amount > 0 && (
+                          <p style={{ fontSize: 14, fontWeight: 600, color: record.paymentStatus === 'pendiente' ? '#ff3b30' : 'var(--text-primary)' }}>
+                            ${record.amount.toLocaleString('es-AR')}
+                          </p>
+                        )}
+                        {record.paymentStatus === 'pendiente' && (
+                          <span style={{ fontSize: 10, fontWeight: 700, color: '#ff3b30', background: '#ff3b3015', padding: '1px 6px', borderRadius: 4, display: 'block', marginTop: 2 }}>
+                            DEBE
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))
         )}
       </div>
     </div>

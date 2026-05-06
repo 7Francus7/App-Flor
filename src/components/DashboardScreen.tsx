@@ -48,6 +48,16 @@ export default function DashboardScreen({
       return acc;
     }, {} as Record<string, number>);
 
+    const weeklyData: { dateStr: string; label: string; amount: number; isToday: boolean }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const dStr = d.toISOString().split('T')[0];
+      const amt = records.filter(r => r.date === dStr).reduce((sum, r) => sum + r.amount, 0);
+      const raw = d.toLocaleDateString('es-AR', { weekday: 'short' }).replace('.', '').slice(0, 2);
+      weeklyData.push({ dateStr: dStr, label: raw.charAt(0).toUpperCase() + raw.slice(1), amount: amt, isToday: i === 0 });
+    }
+
     return {
       totalToday,
       totalMonth,
@@ -66,6 +76,7 @@ export default function DashboardScreen({
       clothingRevenue: monthRecords
         .filter((r) => r.category === 'ropa')
         .reduce((sum, r) => sum + r.amount, 0),
+      weeklyData,
     };
   }, [records, expenses, products]);
 
@@ -119,6 +130,39 @@ export default function DashboardScreen({
           </div>
         </div>
       </div>
+
+      {/* Weekly bar chart */}
+      {(() => {
+        const maxAmt = Math.max(...stats.weeklyData.map(d => d.amount), 1);
+        return (
+          <div className="ios-card" style={{ padding: '20px', marginBottom: 24 }}>
+            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 20 }}>
+              Últimos 7 días
+            </p>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 72 }}>
+              {stats.weeklyData.map(d => (
+                <div key={d.dateStr} style={{ flex: 1, height: '100%', display: 'flex', alignItems: 'flex-end' }}>
+                  <div style={{
+                    width: '100%',
+                    height: Math.max((d.amount / maxAmt) * 72, 4),
+                    background: d.isToday ? 'var(--accent)' : 'var(--accent-soft)',
+                    borderRadius: '4px 4px 0 0',
+                    transition: 'height 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                    opacity: d.amount === 0 ? 0.35 : 1,
+                  }} />
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+              {stats.weeklyData.map(d => (
+                <p key={d.dateStr} style={{ flex: 1, textAlign: 'center', fontSize: 10, fontWeight: d.isToday ? 700 : 500, color: d.isToday ? 'var(--accent)' : 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+                  {d.label}
+                </p>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Net stats */}
       <div className="stats-grid" style={{ display: 'grid', gap: 16, marginBottom: 24 }}>
