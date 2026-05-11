@@ -3,32 +3,106 @@
 import React, { useState } from 'react';
 import { useStore } from '@/store/StoreContext';
 import { useToast } from '@/context/ToastContext';
-import { ChevronLeft, ScissorsIcon, ShirtIcon, TrashIcon, PaletteIcon, EditIcon, CheckIcon, WhatsAppIcon, ClockIcon, SendIcon, NoteIcon, DollarIcon, CreditCardIcon, PhoneIcon } from './Icons';
-import { ClientRecord, PaymentMethod, RecordUpdateData, ServiceCategory } from '@/types';
+import {
+  ChevronLeft, ScissorsIcon, ShirtIcon, TrashIcon, PaletteIcon, EditIcon,
+  CheckIcon, WhatsAppIcon, ClockIcon, NoteIcon, DollarIcon, CreditCardIcon,
+  PhoneIcon, BanknoteIcon, HistoryIcon,
+} from './Icons';
+import { ClientRecord, SalonRecord, ClothingRecord, PaymentMethod, RecordUpdateData, ServiceCategory, Payment } from '@/types';
+
+function PaymentStatusBadge({ status }: { status: 'pagado' | 'pendiente' | 'parcial' }) {
+  if (status === 'pagado') {
+    return (
+      <span style={{
+        display: 'inline-flex', alignItems: 'center', gap: 4,
+        background: '#34c75918', color: '#34c759',
+        fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6,
+        letterSpacing: '0.03em', textTransform: 'uppercase',
+      }}>
+        <CheckIcon size={10} /> Pagado
+      </span>
+    );
+  }
+  if (status === 'parcial') {
+    return (
+      <span style={{
+        display: 'inline-flex', alignItems: 'center', gap: 4,
+        background: '#ff950018', color: '#ff9500',
+        fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6,
+        letterSpacing: '0.03em', textTransform: 'uppercase',
+      }}>
+        Parcial
+      </span>
+    );
+  }
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      background: '#ff3b3015', color: '#ff3b30',
+      fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6,
+      letterSpacing: '0.03em', textTransform: 'uppercase',
+    }}>
+      Pendiente
+    </span>
+  );
+}
+
+function PaymentMethodBadge({ method }: { method: PaymentMethod }) {
+  const map = {
+    efectivo: { label: 'Efectivo', icon: <DollarIcon size={11} />, cls: 'cash' },
+    tarjeta: { label: 'Tarjeta', icon: <CreditCardIcon size={11} />, cls: 'card' },
+    transferencia: { label: 'Transferencia', icon: <PhoneIcon size={11} />, cls: 'transfer' },
+  };
+  const { label, icon, cls } = map[method];
+  return (
+    <span className={`ios-badge ${cls}`}>
+      {icon} {label}
+    </span>
+  );
+}
 
 export default function ClientProfile({ clientId, onBack }: {
   clientId: string;
   onBack: () => void;
 }) {
-  const { getClient, getClientRecords, deleteRecord, updateRecord, updateClient, deleteClient } = useStore();
+  const {
+    getClient, getClientRecords, deleteRecord, updateRecord,
+    updateClient, deleteClient, getRecordPayments, addPayment, deletePayment, updatePayment,
+  } = useStore();
   const { showToast } = useToast();
   const [filter, setFilter] = useState<ServiceCategory | 'all'>('all');
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [notesTemp, setNotesTemp] = useState('');
-
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
 
+  // Edit record state
   const [editingRecord, setEditingRecord] = useState<ClientRecord | null>(null);
   const [editDate, setEditDate] = useState('');
   const [editServiceOrItem, setEditServiceOrItem] = useState('');
   const [editSize, setEditSize] = useState('');
   const [editColor, setEditColor] = useState('');
   const [editPaymentMethod, setEditPaymentMethod] = useState<PaymentMethod>('efectivo');
-  const [editPaymentStatus, setEditPaymentStatus] = useState<'pagado' | 'pendiente'>('pagado');
   const [editAmount, setEditAmount] = useState('');
   const [editObservations, setEditObservations] = useState('');
+
+  // Register payment state
+  const [payingRecord, setPayingRecord] = useState<ClientRecord | null>(null);
+  const [payAmount, setPayAmount] = useState('');
+  const [payDate, setPayDate] = useState('');
+  const [payMethod, setPayMethod] = useState<PaymentMethod>('efectivo');
+  const [payObs, setPayObs] = useState('');
+  const [payError, setPayError] = useState<string | null>(null);
+  const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
+
+  // Edit payment state
+  const [editingPayment, setEditingPayment] = useState<{ payment: Payment; recordId: string } | null>(null);
+  const [editPayDate, setEditPayDate] = useState('');
+  const [editPayAmount, setEditPayAmount] = useState('');
+  const [editPayMethod, setEditPayMethod] = useState<PaymentMethod>('efectivo');
+  const [editPayObs, setEditPayObs] = useState('');
+  const [editPayError, setEditPayError] = useState<string | null>(null);
 
   const client = getClient(clientId);
 
@@ -41,13 +115,25 @@ export default function ClientProfile({ clientId, onBack }: {
     );
   }
 
+  const allRecords = getClientRecords(clientId);
+  const totalVisits = allRecords.length;
   const records = getClientRecords(clientId, filter === 'all' ? undefined : filter);
-  const totalVisits = getClientRecords(clientId).length;
-  const pendingDebt = getClientRecords(clientId).reduce((sum, r) => r.paymentStatus === 'pendiente' ? sum + r.amount : sum, 0);
+
+  // Calculate total pending debt across all records
+  const pendingDebt = allRecords.reduce((sum, r) => {
+    if (r.paymentStatus === 'pagado') return sum;
+    const paid = getRecordPayments(r.id).reduce((s, p) => s + p.amount, 0);
+    return sum + Math.max(0, r.amount - paid);
+  }, 0);
 
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr + 'T12:00:00');
     return d.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  };
+
+  const formatDateShort = (dateStr: string) => {
+    const d = new Date(dateStr + 'T12:00:00');
+    return d.toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' });
   };
 
   const handleWhatsAppAction = (type: 'recordar' | 'agradecer' | 'ficha' | 'directo') => {
@@ -84,7 +170,6 @@ export default function ClientProfile({ clientId, onBack }: {
     setEditSize(record.category === 'ropa' ? record.size : '');
     setEditColor(record.category === 'ropa' ? record.color : '');
     setEditPaymentMethod(record.paymentMethod);
-    setEditPaymentStatus(record.paymentStatus);
     setEditAmount(record.amount > 0 ? record.amount.toString() : '');
     setEditObservations(record.observations || '');
   };
@@ -95,7 +180,6 @@ export default function ClientProfile({ clientId, onBack }: {
     const base: RecordUpdateData = {
       date: editDate,
       paymentMethod: editPaymentMethod,
-      paymentStatus: editPaymentStatus,
       amount: editAmount ? Number(editAmount) : 0,
       observations: editObservations,
     };
@@ -105,11 +189,6 @@ export default function ClientProfile({ clientId, onBack }: {
       updateRecord(editingRecord.id, { ...base, item: editServiceOrItem, size: editSize, color: editColor });
     }
     setEditingRecord(null);
-  };
-
-  const handleMarkAsPaid = (record: ClientRecord) => {
-    updateRecord(record.id, { paymentStatus: 'pagado' });
-    showToast('Pago registrado', undefined, 'success');
   };
 
   const handleDeleteRecord = (record: ClientRecord) => {
@@ -123,6 +202,90 @@ export default function ClientProfile({ clientId, onBack }: {
     const undo = deleteClient(clientId);
     showToast(`Clienta "${client.name}" eliminada`, undo);
     onBack();
+  };
+
+  // --- Payment handlers ---
+  const openRegisterPayment = (record: ClientRecord) => {
+    const paid = getRecordPayments(record.id).reduce((s, p) => s + p.amount, 0);
+    const remaining = Math.max(0, record.amount - paid);
+    setPayingRecord(record);
+    setPayAmount(remaining > 0 ? remaining.toString() : '');
+    setPayDate(new Date().toISOString().split('T')[0]);
+    setPayMethod('efectivo');
+    setPayObs('');
+    setPayError(null);
+  };
+
+  const handleSubmitPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!payingRecord || !payAmount || isSubmittingPayment) return;
+    const amount = Number(payAmount);
+    if (isNaN(amount) || amount <= 0) {
+      setPayError('Ingresá un monto válido mayor a $0.');
+      return;
+    }
+    // Validate against remaining balance
+    const existingPaid = getRecordPayments(payingRecord.id).reduce((s, p) => s + p.amount, 0);
+    const remaining = Math.max(0, payingRecord.amount - existingPaid);
+    if (amount > remaining) {
+      setPayError(`El monto supera el saldo restante de $${remaining.toLocaleString('es-AR')}.`);
+      return;
+    }
+    setPayError(null);
+    setIsSubmittingPayment(true);
+    try {
+      await addPayment(payingRecord.id, { date: payDate, amount, paymentMethod: payMethod, observations: payObs || undefined });
+      showToast('Pago registrado', undefined, 'success');
+      setPayingRecord(null);
+    } finally {
+      setIsSubmittingPayment(false);
+    }
+  };
+
+  const handleDeletePayment = (payment: Payment, recordId: string) => {
+    if (!confirm('¿Eliminar este pago? Se puede deshacer por 5 segundos.')) return;
+    const undo = deletePayment(payment.id, recordId);
+    showToast('Pago eliminado', undo);
+  };
+
+  const openEditPayment = (payment: Payment, recordId: string) => {
+    setEditingPayment({ payment, recordId });
+    setEditPayDate(payment.date);
+    setEditPayAmount(payment.amount.toString());
+    setEditPayMethod(payment.paymentMethod);
+    setEditPayObs(payment.observations || '');
+    setEditPayError(null);
+  };
+
+  const handleSaveEditPayment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPayment) return;
+    const amount = Number(editPayAmount);
+    if (isNaN(amount) || amount <= 0) {
+      setEditPayError('Ingresá un monto válido mayor a $0.');
+      return;
+    }
+    // Validate: sum of all OTHER payments for this record + new amount <= record.amount
+    const record = allRecords.find(r => r.id === editingPayment.recordId);
+    if (record) {
+      const otherPaid = getRecordPayments(editingPayment.recordId)
+        .filter(p => p.id !== editingPayment.payment.id)
+        .reduce((s, p) => s + p.amount, 0);
+      const maxAllowed = Math.max(0, record.amount - otherPaid);
+      if (amount > maxAllowed) {
+        setEditPayError(`El monto supera el saldo disponible de $${maxAllowed.toLocaleString('es-AR')}.`);
+        return;
+      }
+    }
+    setEditPayError(null);
+    updatePayment(editingPayment.payment.id, {
+      date: editPayDate,
+      amount,
+      paymentMethod: editPayMethod,
+      observations: editPayObs || undefined,
+    }, editingPayment.recordId);
+    setEditingPayment(null);
+    showToast('Pago actualizado', undefined, 'success');
   };
 
   return (
@@ -247,39 +410,41 @@ export default function ClientProfile({ clientId, onBack }: {
             <div className="history-cards">
               {records.map((record) => {
                 const isSalon = record.category === 'peluqueria';
+                const recordPayments = getRecordPayments(record.id);
+                const totalPaid = recordPayments.reduce((s, p) => s + p.amount, 0);
+                const remaining = Math.max(0, record.amount - totalPaid);
+                const isFullyPaid = record.paymentStatus === 'pagado';
+                const isPartial = record.paymentStatus === 'parcial';
+                const isPending = record.paymentStatus === 'pendiente';
+
+                const cardBorder = isPending
+                  ? '1px solid #ff3b3040'
+                  : isPartial
+                  ? '1px solid #ff950040'
+                  : 'none';
+
                 return (
-                  <div key={record.id} className="ios-card" style={{ position: 'relative', border: record.paymentStatus === 'pendiente' ? '1px solid #ff3b3050' : 'none' }}>
-                    {/* Header */}
+                  <div key={record.id} className="ios-card" style={{ position: 'relative', border: cardBorder, overflow: 'hidden' }}>
+                    {/* Card Header */}
                     <div style={{ padding: '12px 16px', borderBottom: '0.5px solid var(--separator-opaque)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
                         <p style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500, marginBottom: 5 }}>
                           {formatDate(record.date)}
                         </p>
-                        <div style={{ display: 'flex', gap: 6 }}>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                           <div className={`ios-badge ${isSalon ? 'salon' : 'clothing'}`}>
                             {isSalon ? <ScissorsIcon size={12} /> : <ShirtIcon size={12} />}
                             {isSalon ? 'Peluquería' : 'Tienda'}
                           </div>
-                          {record.paymentStatus === 'pendiente' && (
-                            <div className="ios-badge" style={{ background: '#ff3b3015', color: '#ff3b30', fontWeight: 700 }}>DEBE</div>
-                          )}
+                          <PaymentStatusBadge status={record.paymentStatus} />
                         </div>
                       </div>
                       <div style={{ display: 'flex', gap: 4 }}>
-                        {record.paymentStatus === 'pendiente' && (
-                          <button
-                            className="ios-btn-icon"
-                            style={{ width: 28, height: 28, color: '#34c759' }}
-                            title="Marcar como pagado"
-                            onClick={() => handleMarkAsPaid(record)}
-                          >
-                            <CheckIcon size={16} />
-                          </button>
-                        )}
                         <button
                           className="ios-btn-icon"
                           style={{ width: 28, height: 28, color: 'var(--accent)' }}
                           onClick={() => openEditRecord(record)}
+                          title="Editar"
                         >
                           <EditIcon size={16} />
                         </button>
@@ -287,13 +452,14 @@ export default function ClientProfile({ clientId, onBack }: {
                           className="ios-btn-icon"
                           style={{ width: 28, height: 28, color: 'var(--text-tertiary)' }}
                           onClick={() => handleDeleteRecord(record)}
+                          title="Eliminar"
                         >
                           <TrashIcon size={16} />
                         </button>
                       </div>
                     </div>
 
-                    {/* Body */}
+                    {/* Card Body */}
                     <div style={{ padding: '16px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                         <div>
@@ -307,21 +473,28 @@ export default function ClientProfile({ clientId, onBack }: {
                           )}
                         </div>
                         {record.amount > 0 && (
-                          <div style={{ fontSize: 17, fontWeight: 700, color: record.paymentStatus === 'pendiente' ? '#ff3b30' : 'inherit' }}>
-                            ${record.amount.toLocaleString('es-AR')}
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: 17, fontWeight: 700 }}>
+                              ${record.amount.toLocaleString('es-AR')}
+                            </div>
+                            {!isFullyPaid && totalPaid > 0 && (
+                              <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                                total
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
 
                       {record.observations && (
-                        <div style={{ background: 'var(--bg-tertiary)', padding: '12px', borderRadius: 8, marginTop: 8 }}>
+                        <div style={{ background: 'var(--bg-tertiary)', padding: '12px', borderRadius: 8, marginBottom: 12 }}>
                           <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: 4 }}>Observaciones</p>
                           <p style={{ fontSize: 14, color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>{record.observations}</p>
                         </div>
                       )}
 
                       {record.images && record.images.length > 0 && (
-                        <div style={{ display: 'flex', gap: 8, marginTop: 12, overflowX: 'auto' }}>
+                        <div style={{ display: 'flex', gap: 8, marginBottom: 12, overflowX: 'auto' }}>
                           {record.images.map((img, i) => (
                             <div key={i} style={{ width: 80, height: 80, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: 'var(--bg-secondary)' }}>
                               <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -330,14 +503,99 @@ export default function ClientProfile({ clientId, onBack }: {
                         </div>
                       )}
 
-                      <div style={{ display: 'flex', marginTop: 12, gap: 8 }}>
-                        <span className={`ios-badge ${record.paymentMethod === 'efectivo' ? 'cash' : record.paymentMethod === 'tarjeta' ? 'card' : 'transfer'}`}>
-                          {record.paymentMethod === 'efectivo'
-                            ? <><DollarIcon size={11} /> Efectivo</>
-                            : record.paymentMethod === 'tarjeta'
-                            ? <><CreditCardIcon size={11} /> Tarjeta</>
-                            : <><PhoneIcon size={11} /> Transferencia</>}
-                        </span>
+                      {/* Payment Summary */}
+                      {record.amount > 0 && (
+                        <div style={{
+                          background: 'var(--bg-tertiary)',
+                          borderRadius: 10,
+                          padding: '12px 14px',
+                          marginBottom: 12,
+                        }}>
+                          {/* Summary row */}
+                          <div style={{ display: 'flex', gap: 16, marginBottom: recordPayments.length > 0 ? 12 : 0 }}>
+                            <div style={{ flex: 1 }}>
+                              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>Total</p>
+                              <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>
+                                ${record.amount.toLocaleString('es-AR')}
+                              </p>
+                            </div>
+                            {totalPaid > 0 && (
+                              <div style={{ flex: 1 }}>
+                                <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>Pagado</p>
+                                <p style={{ fontSize: 15, fontWeight: 700, color: '#34c759' }}>
+                                  ${totalPaid.toLocaleString('es-AR')}
+                                </p>
+                              </div>
+                            )}
+                            {remaining > 0 && (
+                              <div style={{ flex: 1 }}>
+                                <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>Restante</p>
+                                <p style={{ fontSize: 15, fontWeight: 700, color: '#ff3b30' }}>
+                                  ${remaining.toLocaleString('es-AR')}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Payment history */}
+                          {recordPayments.length > 0 && (
+                            <div>
+                              <div style={{ height: '0.5px', background: 'var(--separator-opaque)', marginBottom: 10 }} />
+                              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <HistoryIcon size={11} /> Pagos realizados
+                              </p>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                {recordPayments.map((payment) => (
+                                  <div key={payment.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#34c759', flexShrink: 0 }} />
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+                                        ${payment.amount.toLocaleString('es-AR')}
+                                      </span>
+                                      <span style={{ fontSize: 12, color: 'var(--text-secondary)', marginLeft: 6 }}>
+                                        {formatDateShort(payment.date)}
+                                      </span>
+                                      {payment.observations && (
+                                        <span style={{ fontSize: 12, color: 'var(--text-tertiary)', marginLeft: 6 }}>
+                                          · {payment.observations}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <PaymentMethodBadge method={payment.paymentMethod} />
+                                    <button
+                                      onClick={() => openEditPayment(payment, record.id)}
+                                      style={{ background: 'none', border: 'none', padding: '2px 4px', cursor: 'pointer', color: 'var(--text-tertiary)', display: 'flex' }}
+                                      title="Editar pago"
+                                    >
+                                      <EditIcon size={13} />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeletePayment(payment, record.id)}
+                                      style={{ background: 'none', border: 'none', padding: '2px 4px', cursor: 'pointer', color: '#ff3b3080', display: 'flex' }}
+                                      title="Eliminar pago"
+                                    >
+                                      <TrashIcon size={13} />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Footer row: method badge + register payment button */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                        <PaymentMethodBadge method={record.paymentMethod} />
+                        {!isFullyPaid && (
+                          <button
+                            onClick={() => openRegisterPayment(record)}
+                            className="ios-btn-secondary"
+                            style={{ padding: '7px 14px', fontSize: 13, gap: 5, flexShrink: 0 }}
+                          >
+                            <BanknoteIcon size={14} /> Registrar pago
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -348,7 +606,148 @@ export default function ClientProfile({ clientId, onBack }: {
         </div>
       </div>
 
-      {/* Edit Record Sheet */}
+      {/* ── Register Payment Sheet ── */}
+      {payingRecord && (() => {
+        const paidSoFar = getRecordPayments(payingRecord.id).reduce((s, p) => s + p.amount, 0);
+        const remainingBalance = Math.max(0, payingRecord.amount - paidSoFar);
+        const serviceName = payingRecord.category === 'peluqueria'
+          ? (payingRecord as SalonRecord).service
+          : (payingRecord as ClothingRecord).item;
+        return (
+          <div className="ios-sheet-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setPayingRecord(null); }}>
+            <div className="ios-sheet" style={{ maxHeight: '80dvh', overflowY: 'auto' }}>
+              <div className="ios-sheet-handle" />
+              <div className="ios-sheet-header">
+                <button className="ios-btn-text" style={{ padding: 0 }} onClick={() => setPayingRecord(null)}>Cancelar</button>
+                <h2>Registrar Pago</h2>
+                <div style={{ width: 68 }} />
+              </div>
+              <div style={{ padding: '4px 16px 12px', textAlign: 'center' }}>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 6 }}>{serviceName}</p>
+                <div style={{ display: 'inline-flex', gap: 16, background: 'var(--bg-tertiary)', borderRadius: 10, padding: '8px 16px' }}>
+                  <div>
+                    <p style={{ fontSize: 10, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>Total</p>
+                    <p style={{ fontSize: 14, fontWeight: 700 }}>${payingRecord.amount.toLocaleString('es-AR')}</p>
+                  </div>
+                  {paidSoFar > 0 && (
+                    <div>
+                      <p style={{ fontSize: 10, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>Pagado</p>
+                      <p style={{ fontSize: 14, fontWeight: 700, color: '#34c759' }}>${paidSoFar.toLocaleString('es-AR')}</p>
+                    </div>
+                  )}
+                  <div>
+                    <p style={{ fontSize: 10, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>Restante</p>
+                    <p style={{ fontSize: 14, fontWeight: 700, color: '#ff3b30' }}>${remainingBalance.toLocaleString('es-AR')}</p>
+                  </div>
+                </div>
+              </div>
+              <form onSubmit={handleSubmitPayment} style={{ padding: '8px 16px 16px' }}>
+                <div className="ios-input-group" style={{ marginBottom: payError ? 8 : 24 }}>
+                  <div className="ios-input-row">
+                    <label>Fecha del pago</label>
+                    <input type="date" value={payDate} onChange={e => setPayDate(e.target.value)} required max={new Date().toISOString().split('T')[0]} />
+                  </div>
+                  <div className="ios-input-row">
+                    <label>Monto</label>
+                    <div style={{ display: 'flex', alignItems: 'center', flex: 1, justifyContent: 'flex-end' }}>
+                      <span style={{ color: 'var(--text-tertiary)', marginRight: 4 }}>$</span>
+                      <input
+                        type="number"
+                        placeholder="0"
+                        value={payAmount}
+                        onChange={e => { setPayAmount(e.target.value); setPayError(null); }}
+                        min="1"
+                        required
+                        autoFocus
+                        style={{ flex: 'none', width: '110px', borderColor: payError ? '#ff3b30' : undefined }}
+                      />
+                    </div>
+                  </div>
+                  <div className="ios-input-row">
+                    <label>Método</label>
+                    <select value={payMethod} onChange={e => setPayMethod(e.target.value as PaymentMethod)}>
+                      <option value="efectivo">Efectivo</option>
+                      <option value="tarjeta">Tarjeta</option>
+                      <option value="transferencia">Transferencia</option>
+                    </select>
+                  </div>
+                  <div className="ios-input-row" style={{ alignItems: 'flex-start' }}>
+                    <label style={{ paddingTop: 8 }}>Nota</label>
+                    <textarea value={payObs} onChange={e => setPayObs(e.target.value)} placeholder="Opcional..." style={{ resize: 'none', minHeight: 60 }} />
+                  </div>
+                </div>
+                {payError && (
+                  <p style={{ fontSize: 13, color: '#ff3b30', marginBottom: 16, padding: '8px 12px', background: '#ff3b3010', borderRadius: 8 }}>
+                    {payError}
+                  </p>
+                )}
+                <button type="submit" className="ios-btn-primary" style={{ marginBottom: 8 }} disabled={isSubmittingPayment}>
+                  {isSubmittingPayment ? 'Guardando...' : 'Confirmar Pago'}
+                </button>
+              </form>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Edit Payment Sheet ── */}
+      {editingPayment && (
+        <div className="ios-sheet-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setEditingPayment(null); }}>
+          <div className="ios-sheet" style={{ maxHeight: '80dvh', overflowY: 'auto' }}>
+            <div className="ios-sheet-handle" />
+            <div className="ios-sheet-header">
+              <button className="ios-btn-text" style={{ padding: 0 }} onClick={() => setEditingPayment(null)}>Cancelar</button>
+              <h2>Editar Pago</h2>
+              <div style={{ width: 68 }} />
+            </div>
+            <form onSubmit={handleSaveEditPayment} style={{ padding: '16px' }}>
+              <div className="ios-input-group" style={{ marginBottom: editPayError ? 8 : 24 }}>
+                <div className="ios-input-row">
+                  <label>Fecha del pago</label>
+                  <input type="date" value={editPayDate} onChange={e => setEditPayDate(e.target.value)} required max={new Date().toISOString().split('T')[0]} />
+                </div>
+                <div className="ios-input-row">
+                  <label>Monto</label>
+                  <div style={{ display: 'flex', alignItems: 'center', flex: 1, justifyContent: 'flex-end' }}>
+                    <span style={{ color: 'var(--text-tertiary)', marginRight: 4 }}>$</span>
+                    <input
+                      type="number"
+                      placeholder="0"
+                      value={editPayAmount}
+                      onChange={e => { setEditPayAmount(e.target.value); setEditPayError(null); }}
+                      min="1"
+                      required
+                      style={{ flex: 'none', width: '110px', borderColor: editPayError ? '#ff3b30' : undefined }}
+                    />
+                  </div>
+                </div>
+                <div className="ios-input-row">
+                  <label>Método</label>
+                  <select value={editPayMethod} onChange={e => setEditPayMethod(e.target.value as PaymentMethod)}>
+                    <option value="efectivo">Efectivo</option>
+                    <option value="tarjeta">Tarjeta</option>
+                    <option value="transferencia">Transferencia</option>
+                  </select>
+                </div>
+                <div className="ios-input-row" style={{ alignItems: 'flex-start' }}>
+                  <label style={{ paddingTop: 8 }}>Nota</label>
+                  <textarea value={editPayObs} onChange={e => setEditPayObs(e.target.value)} placeholder="Opcional..." style={{ resize: 'none', minHeight: 60 }} />
+                </div>
+              </div>
+              {editPayError && (
+                <p style={{ fontSize: 13, color: '#ff3b30', marginBottom: 16, padding: '8px 12px', background: '#ff3b3010', borderRadius: 8 }}>
+                  {editPayError}
+                </p>
+              )}
+              <button type="submit" className="ios-btn-primary" style={{ marginBottom: 8 }}>
+                Guardar Cambios
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit Record Sheet ── */}
       {editingRecord && (
         <div className="ios-sheet-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setEditingRecord(null); }}>
           <div className="ios-sheet" style={{ maxHeight: '90dvh', overflowY: 'auto' }}>
@@ -397,14 +796,7 @@ export default function ClientProfile({ clientId, onBack }: {
                   </select>
                 </div>
                 <div className="ios-input-row">
-                  <label>Estado</label>
-                  <div className="ios-segment sm" style={{ maxWidth: 200 }}>
-                    <button type="button" className={`ios-segment-btn ${editPaymentStatus === 'pagado' ? 'active' : ''}`} onClick={() => setEditPaymentStatus('pagado')}>Pagado</button>
-                    <button type="button" className={`ios-segment-btn ${editPaymentStatus === 'pendiente' ? 'active' : ''}`} onClick={() => setEditPaymentStatus('pendiente')} style={{ color: editPaymentStatus === 'pendiente' ? '#ff3b30' : '' }}>Debe</button>
-                  </div>
-                </div>
-                <div className="ios-input-row">
-                  <label>Monto</label>
+                  <label>Monto Total</label>
                   <div style={{ display: 'flex', alignItems: 'center', flex: 1, justifyContent: 'flex-end' }}>
                     <span style={{ color: 'var(--text-tertiary)', marginRight: 4 }}>$</span>
                     <input type="number" placeholder="0" value={editAmount} onChange={(e) => setEditAmount(e.target.value)} min="0" style={{ flex: 'none', width: '100px' }} />
@@ -420,7 +812,7 @@ export default function ClientProfile({ clientId, onBack }: {
         </div>
       )}
 
-      {/* Edit Profile Sheet */}
+      {/* ── Edit Profile Sheet ── */}
       {isEditingProfile && (
         <div className="ios-sheet-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setIsEditingProfile(false); }}>
           <div className="ios-sheet">

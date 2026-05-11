@@ -25,7 +25,7 @@ function AppContent() {
   const [showAddClient, setShowAddClient] = useState(initialAction === 'new_client');
   const [isAddingRecord, setIsAddingRecord] = useState(initialAction === 'new_record');
   const [currentSubScreen, setCurrentSubScreen] = useState<'inventory' | 'expenses' | null>(null);
-  const [historyStatusFilter, setHistoryStatusFilter] = useState<'all' | 'pendiente' | 'pagado'>('all');
+  const [historyStatusFilter, setHistoryStatusFilter] = useState<'all' | 'pendiente' | 'pagado' | 'parcial'>('all');
 
   useEffect(() => {
     const action = searchParams.get('action');

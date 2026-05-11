@@ -3,13 +3,14 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from 'react';
 import {
   Client, ClientRecord, SalonRecord, ClothingRecord,
-  ServiceCategory, Expense, Product, RecordUpdateData
+  ServiceCategory, Expense, Product, RecordUpdateData, Payment, PaymentMethod, PaymentStatus,
 } from '@/types';
 import {
   getDbClients, getDbRecords, addDbClient, updateDbClient, deleteDbClient,
   addDbSalonRecord, addDbClothingRecord, updateDbRecord, deleteDbRecord,
   getDbExpenses, addDbExpense, deleteDbExpense,
-  getDbProducts, addDbProduct, updateDbProduct, deleteDbProduct
+  getDbProducts, addDbProduct, updateDbProduct, deleteDbProduct,
+  getDbAllPayments, addDbPayment, deleteDbPayment, updateDbPayment, runPaymentsMigration,
 } from '@/actions/dbActions';
 
 function generateId(): string {
@@ -53,6 +54,13 @@ interface StoreContextType {
   getClientRecords: (clientId: string, category?: ServiceCategory) => ClientRecord[];
   getRecentRecords: (limit?: number) => ClientRecord[];
 
+  // Payments
+  payments: Payment[];
+  addPayment: (recordId: string, data: { date: string; amount: number; paymentMethod: PaymentMethod; observations?: string }) => Promise<void>;
+  deletePayment: (paymentId: string, recordId: string) => () => void;
+  updatePayment: (paymentId: string, data: { date?: string; amount?: number; paymentMethod?: PaymentMethod; observations?: string }, recordId: string) => void;
+  getRecordPayments: (recordId: string) => Payment[];
+
   // Expenses
   expenses: Expense[];
   addExpense: (data: Omit<Expense, 'id' | 'createdAt'>) => void;
@@ -84,7 +92,9 @@ const STORAGE_KEYS = {
   records: 'flor_records_v2',
   expenses: 'flor_expenses_v2',
   products: 'flor_products_v2',
+  payments: 'flor_payments_v1',
   theme: 'flor_theme',
+  migrated: 'flor_payments_migrated_v1',
 };
 
 const UNDO_DELAY = 5000;
@@ -96,6 +106,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const storedRecords = loadStoredValue<ClientRecord[]>(STORAGE_KEYS.records, []);
     return filterOrphanRecords(storedClients, storedRecords);
   });
+  const [payments, setPayments] = useState<Payment[]>(() => loadStoredValue<Payment[]>(STORAGE_KEYS.payments, []));
   const [expenses, setExpenses] = useState<Expense[]>(() => loadStoredValue<Expense[]>(STORAGE_KEYS.expenses, []));
   const [products, setProducts] = useState<Product[]>(() => loadStoredValue<Product[]>(STORAGE_KEYS.products, []));
   const [activeCategory, setActiveCategory] = useState<ServiceCategory>('peluqueria');
@@ -103,7 +114,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [syncError, setSyncError] = useState(false);
   const isLoaded = true;
 
-  // Undo timers — id → setTimeout handle
   const undoTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   function scheduleDbDelete(id: string, dbDeleteFn: () => void) {
@@ -137,14 +147,31 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const sync = async () => {
       try {
-        const [dbC, dbR, dbE, dbP] = await Promise.all([
-          getDbClients(), getDbRecords(), getDbExpenses(), getDbProducts()
+        const [dbC, dbR, dbE, dbP, dbPay] = await Promise.all([
+          getDbClients(), getDbRecords(), getDbExpenses(), getDbProducts(), getDbAllPayments(),
         ]);
         setClients(dbC);
         setRecords(filterOrphanRecords(dbC, dbR));
         setExpenses(dbE);
         setProducts(dbP);
+        setPayments(dbPay);
         setSyncError(false);
+
+        // One-time migration for legacy pagado records
+        if (!localStorage.getItem(STORAGE_KEYS.migrated)) {
+          try {
+            const { migrated } = await runPaymentsMigration();
+            if (migrated > 0) {
+              const freshPayments = await getDbAllPayments();
+              const freshRecords = await getDbRecords();
+              setPayments(freshPayments);
+              setRecords(filterOrphanRecords(dbC, freshRecords));
+            }
+            localStorage.setItem(STORAGE_KEYS.migrated, '1');
+          } catch (e) {
+            console.warn('Migration failed', e);
+          }
+        }
       } catch (e) {
         console.warn('Offline mode', e);
         setSyncError(true);
@@ -156,6 +183,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // Persistence
   useEffect(() => { if (isLoaded) localStorage.setItem(STORAGE_KEYS.clients, JSON.stringify(clients)); }, [clients, isLoaded]);
   useEffect(() => { if (isLoaded) localStorage.setItem(STORAGE_KEYS.records, JSON.stringify(records)); }, [records, isLoaded]);
+  useEffect(() => { if (isLoaded) localStorage.setItem(STORAGE_KEYS.payments, JSON.stringify(payments)); }, [payments, isLoaded]);
   useEffect(() => { if (isLoaded) localStorage.setItem(STORAGE_KEYS.expenses, JSON.stringify(expenses)); }, [expenses, isLoaded]);
   useEffect(() => { if (isLoaded) localStorage.setItem(STORAGE_KEYS.products, JSON.stringify(products)); }, [products, isLoaded]);
 
@@ -181,12 +209,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const deleteClient = useCallback((id: string): (() => void) => {
-    // Capture before setState so the undo closure always has the data
     const deletedClient = clients.find(c => c.id === id);
     const deletedClientRecords = records.filter(r => r.clientId === id);
+    const deletedPayments = payments.filter(p => deletedClientRecords.some(r => r.id === p.recordId));
 
     setClients(prev => prev.filter(c => c.id !== id));
     setRecords(prev => prev.filter(r => r.clientId !== id));
+    setPayments(prev => prev.filter(p => !deletedPayments.some(dp => dp.id === p.id)));
 
     scheduleDbDelete(id, () => deleteDbClient(id));
 
@@ -194,8 +223,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       cancelDbDelete(id);
       if (deletedClient) setClients(prev => [deletedClient, ...prev]);
       if (deletedClientRecords.length) setRecords(prev => [...prev, ...deletedClientRecords]);
+      if (deletedPayments.length) setPayments(prev => [...prev, ...deletedPayments]);
     };
-  }, [clients, records]);
+  }, [clients, records, payments]);
 
   const getClient = useCallback((id: string) => clients.find(c => c.id === id), [clients]);
   const searchClients = useCallback((query: string) => {
@@ -208,19 +238,31 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const addSalonRecord = useCallback((clientId: string, data: Omit<SalonRecord, 'id' | 'clientId' | 'category' | 'createdAt'>) => {
     const record: SalonRecord = { id: generateId(), clientId, category: 'peluqueria', createdAt: new Date().toISOString(), ...data };
     setRecords(prev => [record, ...prev]);
-    addDbSalonRecord(clientId, data).then(dbRecord => setRecords(prev => replaceOptimisticItem(prev, record.id, dbRecord)));
+    addDbSalonRecord(clientId, data).then(dbRecord => {
+      setRecords(prev => replaceOptimisticItem(prev, record.id, dbRecord));
+      // Auto-create payment entry if created as pagado
+      if (data.paymentStatus === 'pagado' && data.amount > 0) {
+        addDbPayment({ recordId: dbRecord.id, date: data.date, amount: data.amount, paymentMethod: data.paymentMethod })
+          .then(({ payment }) => setPayments(prev => [payment, ...prev]));
+      }
+    });
   }, []);
 
   const addClothingRecord = useCallback((
     clientId: string,
     data: Omit<ClothingRecord, 'id' | 'clientId' | 'category' | 'createdAt'>,
-    productId?: string
+    productId?: string,
   ) => {
     const record: ClothingRecord = { id: generateId(), clientId, category: 'ropa', createdAt: new Date().toISOString(), ...data };
     setRecords(prev => [record, ...prev]);
-    addDbClothingRecord(clientId, data).then(dbRecord => setRecords(prev => replaceOptimisticItem(prev, record.id, dbRecord)));
+    addDbClothingRecord(clientId, data).then(dbRecord => {
+      setRecords(prev => replaceOptimisticItem(prev, record.id, dbRecord));
+      if (data.paymentStatus === 'pagado' && data.amount > 0) {
+        addDbPayment({ recordId: dbRecord.id, date: data.date, amount: data.amount, paymentMethod: data.paymentMethod })
+          .then(({ payment }) => setPayments(prev => [payment, ...prev]));
+      }
+    });
 
-    // Decrement stock of linked product
     if (productId) {
       setProducts(prev => {
         const product = prev.find(p => p.id === productId);
@@ -253,7 +295,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       size: record.category === 'ropa' ? (data.size ?? (record as ClothingRecord).size) : undefined,
       color: record.category === 'ropa' ? (data.color ?? (record as ClothingRecord).color) : undefined,
       paymentMethod: data.paymentMethod ?? record.paymentMethod,
-      paymentStatus: data.paymentStatus ?? record.paymentStatus,
       amount: data.amount ?? record.amount,
       observations: data.observations ?? record.observations,
     });
@@ -261,16 +302,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const deleteRecord = useCallback((id: string): (() => void) => {
     const record = records.find(r => r.id === id);
+    const recordPayments = payments.filter(p => p.recordId === id);
     if (!record) return () => {};
 
     setRecords(prev => prev.filter(r => r.id !== id));
+    setPayments(prev => prev.filter(p => p.recordId !== id));
     scheduleDbDelete(id, () => deleteDbRecord(id));
 
     return () => {
       cancelDbDelete(id);
       setRecords(prev => [...prev, record].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+      if (recordPayments.length) setPayments(prev => [...prev, ...recordPayments]);
     };
-  }, [records]);
+  }, [records, payments]);
 
   const getClientRecords = useCallback((clientId: string, category?: ServiceCategory) => {
     let filtered = records.filter(r => r.clientId === clientId);
@@ -281,6 +325,66 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const getRecentRecords = useCallback((limit = 20) => {
     return [...records].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, limit);
   }, [records]);
+
+  // --- Payment methods ---
+  const addPayment = useCallback(async (
+    recordId: string,
+    data: { date: string; amount: number; paymentMethod: PaymentMethod; observations?: string },
+  ): Promise<void> => {
+    const { payment, newStatus } = await addDbPayment({ recordId, ...data });
+    setPayments(prev => [payment, ...prev]);
+    setRecords(prev => prev.map(r => r.id === recordId ? { ...r, paymentStatus: newStatus } : r));
+  }, []);
+
+  const deletePayment = useCallback((paymentId: string, recordId: string): (() => void) => {
+    const payment = payments.find(p => p.id === paymentId);
+    if (!payment) return () => {};
+
+    // Compute optimistic status immediately so badge updates without waiting for DB
+    const record = records.find(r => r.id === recordId);
+    const afterDeletePayments = payments.filter(p => p.recordId === recordId && p.id !== paymentId);
+    const newTotalPaid = afterDeletePayments.reduce((s, p) => s + p.amount, 0);
+    const recordAmount = record?.amount ?? 0;
+    const optimisticStatus: PaymentStatus =
+      recordAmount === 0 ? 'pagado'
+      : newTotalPaid <= 0 ? 'pendiente'
+      : newTotalPaid >= recordAmount ? 'pagado'
+      : 'parcial';
+
+    setPayments(prev => prev.filter(p => p.id !== paymentId));
+    setRecords(prev => prev.map(r => r.id === recordId ? { ...r, paymentStatus: optimisticStatus } : r));
+
+    scheduleDbDelete(paymentId, () =>
+      deleteDbPayment(paymentId, recordId).then(({ newStatus }) =>
+        // Confirm with server-computed status (should match, but ensures consistency)
+        setRecords(prev => prev.map(r => r.id === recordId ? { ...r, paymentStatus: newStatus } : r))
+      )
+    );
+
+    return () => {
+      cancelDbDelete(paymentId);
+      setPayments(prev => [payment, ...prev]);
+      // Restore record's original status on undo
+      if (record) setRecords(prev => prev.map(r => r.id === recordId ? { ...r, paymentStatus: record.paymentStatus } : r));
+    };
+  }, [payments, records]);
+
+  const updatePayment = useCallback((
+    paymentId: string,
+    data: { date?: string; amount?: number; paymentMethod?: PaymentMethod; observations?: string },
+    recordId: string,
+  ) => {
+    setPayments(prev => prev.map(p => p.id === paymentId ? { ...p, ...data } : p));
+    updateDbPayment(paymentId, data, recordId).then(({ newStatus }) =>
+      setRecords(prev => prev.map(r => r.id === recordId ? { ...r, paymentStatus: newStatus } : r))
+    );
+  }, []);
+
+  const getRecordPayments = useCallback((recordId: string): Payment[] => {
+    return payments
+      .filter(p => p.recordId === recordId)
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [payments]);
 
   // --- Expense methods ---
   const addExpense = useCallback((data: Omit<Expense, 'id' | 'createdAt'>) => {
@@ -341,6 +445,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       value={{
         clients, addClient, updateClient, deleteClient, getClient, searchClients,
         records, addSalonRecord, addClothingRecord, updateRecord, deleteRecord, getClientRecords, getRecentRecords,
+        payments, addPayment, deletePayment, updatePayment, getRecordPayments,
         expenses, addExpense, deleteExpense,
         products, addProduct, updateProduct, deleteProduct,
         activeCategory, setActiveCategory,

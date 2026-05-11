@@ -14,21 +14,23 @@ export default function DashboardScreen({
   onGoToExpenses: () => void;
   onGoToDebtors: () => void;
 }) {
-  const { records, expenses, products, getClient } = useStore();
+  const { records, payments, expenses, products, getClient } = useStore();
 
   const stats = useMemo(() => {
     const now = new Date();
     const todayStr = now.toISOString().split('T')[0];
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const todayRecords = records.filter((r) => r.date === todayStr);
-    const monthRecords = records.filter((r) => {
-      const d = new Date(r.date + 'T12:00:00');
+    // Income comes from actual payments (real cash-in dates), not record dates
+    const todayPayments = payments.filter((p) => p.date === todayStr);
+    const monthPayments = payments.filter((p) => {
+      const d = new Date(p.date + 'T12:00:00');
       return d >= startOfMonth;
     });
 
-    const totalToday = todayRecords.reduce((sum, r) => sum + r.amount, 0);
-    const totalMonth = monthRecords.reduce((sum, r) => sum + r.amount, 0);
+    const totalToday = todayPayments.reduce((sum, p) => sum + p.amount, 0);
+    const totalMonth = monthPayments.reduce((sum, p) => sum + p.amount, 0);
+
     const totalExpensesToday = expenses
       .filter((e) => e.date === todayStr)
       .reduce((sum, e) => sum + e.amount, 0);
@@ -39,24 +41,39 @@ export default function DashboardScreen({
       })
       .reduce((sum, e) => sum + e.amount, 0);
 
+    // Pending = unpaid + partial debt (not yet received cash)
     const pendingAmount = records
-      .filter((r) => r.paymentStatus === 'pendiente')
-      .reduce((sum, r) => sum + r.amount, 0);
+      .filter((r) => r.paymentStatus !== 'pagado')
+      .reduce((sum, r) => {
+        const paid = payments.filter(p => p.recordId === r.id).reduce((s, p) => s + p.amount, 0);
+        return sum + Math.max(0, r.amount - paid);
+      }, 0);
 
-    const paymentMethods = records.reduce((acc, r) => {
-      acc[r.paymentMethod] = (acc[r.paymentMethod] || 0) + r.amount;
+    // Payment method breakdown from actual payments
+    const paymentMethods = payments.reduce((acc, p) => {
+      acc[p.paymentMethod] = (acc[p.paymentMethod] || 0) + p.amount;
       return acc;
     }, {} as Record<string, number>);
 
+    // Weekly chart from actual payment dates
     const weeklyData: { dateStr: string; label: string; amount: number; isToday: boolean }[] = [];
     for (let i = 6; i >= 0; i--) {
       const d = new Date(now);
       d.setDate(d.getDate() - i);
       const dStr = d.toISOString().split('T')[0];
-      const amt = records.filter(r => r.date === dStr).reduce((sum, r) => sum + r.amount, 0);
+      const amt = payments.filter(p => p.date === dStr).reduce((sum, p) => sum + p.amount, 0);
       const raw = d.toLocaleDateString('es-AR', { weekday: 'short' }).replace('.', '').slice(0, 2);
       weeklyData.push({ dateStr: dStr, label: raw.charAt(0).toUpperCase() + raw.slice(1), amount: amt, isToday: i === 0 });
     }
+
+    // Revenue by category for this month (from payments on records of each category)
+    const recordMap = new Map(records.map(r => [r.id, r.category]));
+    const salonRevenue = monthPayments
+      .filter(p => recordMap.get(p.recordId) === 'peluqueria')
+      .reduce((sum, p) => sum + p.amount, 0);
+    const clothingRevenue = monthPayments
+      .filter(p => recordMap.get(p.recordId) === 'ropa')
+      .reduce((sum, p) => sum + p.amount, 0);
 
     return {
       totalToday,
@@ -68,17 +85,13 @@ export default function DashboardScreen({
       netMonth: totalMonth - totalExpensesMonth,
       lowStockCount: products.filter((p) => p.stock <= 2).length,
       clientsWithDebt: new Set(
-        records.filter((r) => r.paymentStatus === 'pendiente').map((r) => r.clientId)
+        records.filter((r) => r.paymentStatus !== 'pagado').map((r) => r.clientId)
       ).size,
-      salonRevenue: monthRecords
-        .filter((r) => r.category === 'peluqueria')
-        .reduce((sum, r) => sum + r.amount, 0),
-      clothingRevenue: monthRecords
-        .filter((r) => r.category === 'ropa')
-        .reduce((sum, r) => sum + r.amount, 0),
+      salonRevenue,
+      clothingRevenue,
       weeklyData,
     };
-  }, [records, expenses, products]);
+  }, [records, payments, expenses, products]);
 
   const handleExportRecords = () => {
     exportRecordsToCsv(records, (id) => getClient(id)?.name ?? 'Clienta eliminada');

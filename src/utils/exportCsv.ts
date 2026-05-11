@@ -29,7 +29,7 @@ export function exportRecordsToCsv(records: ClientRecord[], getClientName: (id: 
     r.category === 'ropa' ? r.color : '',
     r.amount.toString(),
     r.paymentMethod,
-    r.paymentStatus === 'pagado' ? 'Pagado' : 'Pendiente',
+    r.paymentStatus === 'pagado' ? 'Pagado' : r.paymentStatus === 'parcial' ? 'Parcial' : 'Pendiente',
     r.observations || '',
   ]);
   downloadCsv([headers, ...rows], `registros-${new Date().toISOString().split('T')[0]}.csv`);

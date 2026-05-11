@@ -18,10 +18,21 @@ export const records = pgTable('records', {
   size: text('size'),
   color: text('color'),
   paymentMethod: text('payment_method').notNull(), // 'efectivo' | 'tarjeta' | 'transferencia'
-  paymentStatus: text('payment_status').default('pagado').notNull(), // 'pagado' | 'pendiente'
+  paymentStatus: text('payment_status').default('pendiente').notNull(), // 'pagado' | 'pendiente' | 'parcial'
   amount: decimal('amount', { precision: 10, scale: 2 }),
   observations: text('observations'),
   images: text('images'), // Stored as JSON array string for simplicity
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Partial/full payments linked to a record
+export const payments = pgTable('payments', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  recordId: uuid('record_id').references(() => records.id, { onDelete: 'cascade' }).notNull(),
+  date: text('date').notNull(), // YYYY-MM-DD — the real cash-in date
+  amount: decimal('amount', { precision: 10, scale: 2 }).notNull(),
+  paymentMethod: text('payment_method').notNull(), // 'efectivo' | 'tarjeta' | 'transferencia'
+  observations: text('observations'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 

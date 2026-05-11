@@ -6,7 +6,7 @@ export type PaymentMethod = 'efectivo' | 'tarjeta' | 'transferencia';
 
 export type ServiceCategory = 'peluqueria' | 'ropa';
 
-export type PaymentStatus = 'pagado' | 'pendiente';
+export type PaymentStatus = 'pagado' | 'pendiente' | 'parcial';
 
 // Registro de un servicio de peluquería
 export interface SalonRecord {
@@ -41,6 +41,17 @@ export interface ClothingRecord {
 }
 
 export type ClientRecord = SalonRecord | ClothingRecord;
+
+// Individual payment linked to a record
+export interface Payment {
+  id: string;
+  recordId: string;
+  date: string; // YYYY-MM-DD — real cash-in date
+  amount: number;
+  paymentMethod: PaymentMethod;
+  observations?: string;
+  createdAt: string;
+}
 
 export interface Client {
   id: string;
@@ -81,7 +92,6 @@ export interface RecordUpdateData {
   size?: string;
   color?: string;
   paymentMethod?: PaymentMethod;
-  paymentStatus?: PaymentStatus;
   amount?: number;
   observations?: string;
   images?: string[];

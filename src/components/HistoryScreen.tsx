@@ -11,11 +11,11 @@ export default function HistoryScreen({
   initialStatusFilter,
 }: {
   onClientSelect: (id: string) => void;
-  initialStatusFilter?: 'all' | 'pendiente' | 'pagado';
+  initialStatusFilter?: 'all' | 'pendiente' | 'pagado' | 'parcial';
 }) {
   const { records, getClient } = useStore();
   const [filter, setFilter] = useState<ServiceCategory | 'all'>('all');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pendiente' | 'pagado'>(initialStatusFilter ?? 'all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pendiente' | 'pagado' | 'parcial'>(initialStatusFilter ?? 'all');
 
   const displayRecords = useMemo(() => {
     let result = [...records]
@@ -43,7 +43,7 @@ export default function HistoryScreen({
         const d = new Date(dateStr + 'T12:00:00');
         label = d.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
       }
-      const total = items.reduce((sum, r) => sum + r.amount, 0);
+      const total = items.filter(r => r.paymentStatus === 'pagado').reduce((sum, r) => sum + r.amount, 0);
       return { label, dateStr, total, items };
     });
   }, [displayRecords]);
@@ -87,6 +87,13 @@ export default function HistoryScreen({
           </button>
           <button className={`ios-segment-btn ${statusFilter === 'pagado' ? 'active' : ''}`} onClick={() => setStatusFilter('pagado')}>
             Pagados
+          </button>
+          <button
+            className={`ios-segment-btn ${statusFilter === 'parcial' ? 'active' : ''}`}
+            onClick={() => setStatusFilter('parcial')}
+            style={{ color: statusFilter === 'parcial' ? '#ff9500' : '' }}
+          >
+            Parcial
           </button>
           <button
             className={`ios-segment-btn ${statusFilter === 'pendiente' ? 'active' : ''}`}
@@ -147,13 +154,18 @@ export default function HistoryScreen({
                       </div>
                       <div style={{ textAlign: 'right', flexShrink: 0 }}>
                         {record.amount > 0 && (
-                          <p style={{ fontSize: 14, fontWeight: 600, color: record.paymentStatus === 'pendiente' ? '#ff3b30' : 'var(--text-primary)' }}>
+                          <p style={{ fontSize: 14, fontWeight: 600, color: record.paymentStatus === 'pendiente' ? '#ff3b30' : record.paymentStatus === 'parcial' ? '#ff9500' : 'var(--text-primary)' }}>
                             ${record.amount.toLocaleString('es-AR')}
                           </p>
                         )}
                         {record.paymentStatus === 'pendiente' && (
                           <span style={{ fontSize: 10, fontWeight: 700, color: '#ff3b30', background: '#ff3b3015', padding: '1px 6px', borderRadius: 4, display: 'block', marginTop: 2 }}>
                             DEBE
+                          </span>
+                        )}
+                        {record.paymentStatus === 'parcial' && (
+                          <span style={{ fontSize: 10, fontWeight: 700, color: '#ff9500', background: '#ff950015', padding: '1px 6px', borderRadius: 4, display: 'block', marginTop: 2 }}>
+                            PARCIAL
                           </span>
                         )}
                       </div>

@@ -207,3 +207,19 @@ export const SendIcon = ({ size = 24, style }: { size?: number; style?: React.CS
     <polygon points="22 2 15 22 11 13 2 9 22 2" />
   </svg>
 );
+
+export const BanknoteIcon = ({ size = 24, style }: { size?: number; style?: React.CSSProperties }) => (
+  <svg {...iconProps} width={size} height={size} style={style}>
+    <rect x="2" y="6" width="20" height="12" rx="2" />
+    <circle cx="12" cy="12" r="2" />
+    <path d="M6 12h.01M18 12h.01" />
+  </svg>
+);
+
+export const HistoryIcon = ({ size = 24, style }: { size?: number; style?: React.CSSProperties }) => (
+  <svg {...iconProps} width={size} height={size} style={style}>
+    <path d="M3 3v5h5" />
+    <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
+    <path d="M12 7v5l4 2" />
+  </svg>
+);
