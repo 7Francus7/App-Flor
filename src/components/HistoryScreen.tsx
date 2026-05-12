@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { useStore } from '@/store/StoreContext';
 import { ScissorsIcon, ShirtIcon, ClockIcon } from './Icons';
 import { ServiceCategory } from '@/types';
-import { exportRecordsToCsv } from '@/utils/exportCsv';
+import { exportRecordsToXlsx } from '@/utils/exportXlsx';
 
 export default function HistoryScreen({
   onClientSelect,
@@ -49,7 +49,7 @@ export default function HistoryScreen({
   }, [displayRecords]);
 
   const handleExport = () => {
-    exportRecordsToCsv(displayRecords, (id) => getClient(id)?.name ?? 'Clienta eliminada');
+    exportRecordsToXlsx(displayRecords, (id) => getClient(id)?.name ?? 'Clienta eliminada');
   };
 
   return (

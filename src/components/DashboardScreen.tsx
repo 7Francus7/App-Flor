@@ -5,7 +5,7 @@ import { useStore } from '@/store/StoreContext';
 import {
   DollarIcon, CreditCardIcon, PackageIcon, ScissorsIcon, ShirtIcon, BanknoteIcon, ChartIcon,
 } from './Icons';
-import { exportRecordsToCsv, exportExpensesToCsv } from '@/utils/exportCsv';
+import { exportRecordsToXlsx, exportExpensesToXlsx } from '@/utils/exportXlsx';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 const fmt = (n: number) => n.toLocaleString('es-AR');
@@ -193,14 +193,14 @@ export default function DashboardScreen({
           <h1 className="ios-nav-title" style={{ fontSize: 32 }}>Balance</h1>
           <div style={{ display: 'flex', gap: 8 }}>
             <button
-              onClick={() => exportRecordsToCsv(records, id => getClient(id)?.name ?? 'Eliminada')}
+              onClick={() => exportRecordsToXlsx(records, id => getClient(id)?.name ?? 'Eliminada')}
               className="ios-btn-secondary"
               style={{ padding: '5px 10px', fontSize: 11 }}
             >
               Exportar ventas
             </button>
             <button
-              onClick={() => exportExpensesToCsv(expenses)}
+              onClick={() => exportExpensesToXlsx(expenses)}
               className="ios-btn-secondary"
               style={{ padding: '5px 10px', fontSize: 11 }}
             >
