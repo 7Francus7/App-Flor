@@ -98,6 +98,7 @@ function AppContent() {
           onGoToInventory={() => setCurrentSubScreen('inventory')}
           onGoToExpenses={() => setCurrentSubScreen('expenses')}
           onGoToDebtors={goToDebtors}
+          onClientSelect={setSelectedClientId}
         />
       )}
 
