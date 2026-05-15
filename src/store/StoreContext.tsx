@@ -47,8 +47,8 @@ interface StoreContextType {
 
   // Records
   records: ClientRecord[];
-  addSalonRecord: (clientId: string, data: Omit<SalonRecord, 'id' | 'clientId' | 'category' | 'createdAt'>) => void;
-  addClothingRecord: (clientId: string, data: Omit<ClothingRecord, 'id' | 'clientId' | 'category' | 'createdAt'>, productId?: string) => void;
+  addSalonRecord: (clientId: string, data: Omit<SalonRecord, 'id' | 'clientId' | 'category' | 'createdAt'>, initialPaymentAmount?: number) => void;
+  addClothingRecord: (clientId: string, data: Omit<ClothingRecord, 'id' | 'clientId' | 'category' | 'createdAt'>, productId?: string, initialPaymentAmount?: number) => void;
   updateRecord: (id: string, data: RecordUpdateData) => void;
   deleteRecord: (id: string) => () => void;
   getClientRecords: (clientId: string, category?: ServiceCategory) => ClientRecord[];
@@ -235,15 +235,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [clients]);
 
   // --- Record methods ---
-  const addSalonRecord = useCallback((clientId: string, data: Omit<SalonRecord, 'id' | 'clientId' | 'category' | 'createdAt'>) => {
+  const addSalonRecord = useCallback((clientId: string, data: Omit<SalonRecord, 'id' | 'clientId' | 'category' | 'createdAt'>, initialPaymentAmount?: number) => {
     const record: SalonRecord = { id: generateId(), clientId, category: 'peluqueria', createdAt: new Date().toISOString(), ...data };
     setRecords(prev => [record, ...prev]);
     addDbSalonRecord(clientId, data).then(dbRecord => {
       setRecords(prev => replaceOptimisticItem(prev, record.id, dbRecord));
-      // Auto-create payment entry if created as pagado
       if (data.paymentStatus === 'pagado' && data.amount > 0) {
         addDbPayment({ recordId: dbRecord.id, date: data.date, amount: data.amount, paymentMethod: data.paymentMethod })
           .then(({ payment }) => setPayments(prev => [payment, ...prev]));
+      } else if (data.paymentStatus === 'parcial' && initialPaymentAmount && initialPaymentAmount > 0) {
+        addDbPayment({ recordId: dbRecord.id, date: data.date, amount: initialPaymentAmount, paymentMethod: data.paymentMethod })
+          .then(({ payment, newStatus }) => {
+            setPayments(prev => [payment, ...prev]);
+            setRecords(prev => prev.map(r => r.id === dbRecord.id ? { ...r, paymentStatus: newStatus } : r));
+          });
       }
     });
   }, []);
@@ -252,6 +257,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     clientId: string,
     data: Omit<ClothingRecord, 'id' | 'clientId' | 'category' | 'createdAt'>,
     productId?: string,
+    initialPaymentAmount?: number,
   ) => {
     const record: ClothingRecord = { id: generateId(), clientId, category: 'ropa', createdAt: new Date().toISOString(), ...data };
     setRecords(prev => [record, ...prev]);
@@ -260,6 +266,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (data.paymentStatus === 'pagado' && data.amount > 0) {
         addDbPayment({ recordId: dbRecord.id, date: data.date, amount: data.amount, paymentMethod: data.paymentMethod })
           .then(({ payment }) => setPayments(prev => [payment, ...prev]));
+      } else if (data.paymentStatus === 'parcial' && initialPaymentAmount && initialPaymentAmount > 0) {
+        addDbPayment({ recordId: dbRecord.id, date: data.date, amount: initialPaymentAmount, paymentMethod: data.paymentMethod })
+          .then(({ payment, newStatus }) => {
+            setPayments(prev => [payment, ...prev]);
+            setRecords(prev => prev.map(r => r.id === dbRecord.id ? { ...r, paymentStatus: newStatus } : r));
+          });
       }
     });
 

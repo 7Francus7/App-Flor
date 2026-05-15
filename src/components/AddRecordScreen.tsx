@@ -3,7 +3,7 @@
 import React, { useMemo, useState, useRef } from 'react';
 import { useStore } from '@/store/StoreContext';
 import { ChevronLeft, CameraIcon, XIcon, ScissorsIcon, ShirtIcon, DollarIcon, CreditCardIcon, PhoneIcon } from './Icons';
-import { PaymentMethod, ServiceCategory } from '@/types';
+import { PaymentMethod, PaymentStatus, ServiceCategory } from '@/types';
 import AddClientSheet from './AddClientSheet';
 
 export default function AddRecordScreen({ onBack, defaultCategory = 'peluqueria' }: {
@@ -22,8 +22,9 @@ export default function AddRecordScreen({ onBack, defaultCategory = 'peluqueria'
   const [size, setSize] = useState('');
   const [color, setColor] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('efectivo');
-  const [paymentStatus, setPaymentStatus] = useState<'pagado' | 'pendiente'>('pagado');
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('pagado');
   const [amount, setAmount] = useState('');
+  const [entrega, setEntrega] = useState('');
   const [observations, setObservations] = useState('');
   const [images, setImages] = useState<string[]>([]);
 
@@ -49,6 +50,7 @@ export default function AddRecordScreen({ onBack, defaultCategory = 'peluqueria'
     setSize('');
     setColor('');
     setAmount('');
+    setEntrega('');
   };
 
   const handleProductSelect = (productId: string) => {
@@ -66,6 +68,7 @@ export default function AddRecordScreen({ onBack, defaultCategory = 'peluqueria'
       setSize(p.size || '');
       setColor(p.color || '');
       setAmount(p.price.toString());
+      setEntrega('');
     }
   };
 
@@ -91,22 +94,26 @@ export default function AddRecordScreen({ onBack, defaultCategory = 'peluqueria'
     e.preventDefault();
     if (!clientId || !serviceOrItem) return;
 
+    const totalAmount = amount ? Number(amount) : 0;
+    const entregaAmount = paymentStatus === 'parcial' && entrega ? Number(entrega) : undefined;
+
     const common = {
       date,
       paymentMethod,
       paymentStatus,
-      amount: amount ? Number(amount) : 0,
+      amount: totalAmount,
       observations,
       images,
     };
 
     if (category === 'peluqueria') {
-      addSalonRecord(clientId, { ...common, service: serviceOrItem });
+      addSalonRecord(clientId, { ...common, service: serviceOrItem }, entregaAmount);
     } else {
       addClothingRecord(
         clientId,
         { ...common, item: serviceOrItem, size, color },
-        selectedProductId || undefined
+        selectedProductId || undefined,
+        entregaAmount,
       );
     }
 
@@ -257,18 +264,26 @@ export default function AddRecordScreen({ onBack, defaultCategory = 'peluqueria'
             </div>
             <div className="ios-input-row">
               <label>Estado</label>
-              <div className="ios-segment sm" style={{ maxWidth: 200 }}>
+              <div className="ios-segment sm" style={{ maxWidth: 240 }}>
                 <button
                   type="button"
                   className={`ios-segment-btn ${paymentStatus === 'pagado' ? 'active' : ''}`}
-                  onClick={() => setPaymentStatus('pagado')}
+                  onClick={() => { setPaymentStatus('pagado'); setEntrega(''); }}
                 >
                   Pagado
                 </button>
                 <button
                   type="button"
+                  className={`ios-segment-btn ${paymentStatus === 'parcial' ? 'active' : ''}`}
+                  onClick={() => setPaymentStatus('parcial')}
+                  style={{ color: paymentStatus === 'parcial' ? '#ff9500' : '' }}
+                >
+                  Parcial
+                </button>
+                <button
+                  type="button"
                   className={`ios-segment-btn ${paymentStatus === 'pendiente' ? 'active' : ''}`}
-                  onClick={() => setPaymentStatus('pendiente')}
+                  onClick={() => { setPaymentStatus('pendiente'); setEntrega(''); }}
                   style={{ color: paymentStatus === 'pendiente' ? '#ff3b30' : '' }}
                 >
                   Debe
@@ -276,7 +291,7 @@ export default function AddRecordScreen({ onBack, defaultCategory = 'peluqueria'
               </div>
             </div>
             <div className="ios-input-row">
-              <label>Monto</label>
+              <label>Total</label>
               <div style={{ display: 'flex', alignItems: 'center', flex: 1, justifyContent: 'flex-end' }}>
                 <span style={{ color: 'var(--text-tertiary)', marginRight: 4 }}>$</span>
                 <input
@@ -289,6 +304,38 @@ export default function AddRecordScreen({ onBack, defaultCategory = 'peluqueria'
                 />
               </div>
             </div>
+            {paymentStatus === 'parcial' && (
+              <>
+                <div className="ios-input-row">
+                  <label>Entrega</label>
+                  <div style={{ display: 'flex', alignItems: 'center', flex: 1, justifyContent: 'flex-end' }}>
+                    <span style={{ color: 'var(--text-tertiary)', marginRight: 4 }}>$</span>
+                    <input
+                      type="number"
+                      placeholder="0.00"
+                      value={entrega}
+                      onChange={(e) => setEntrega(e.target.value)}
+                      min="0"
+                      max={amount || undefined}
+                      style={{ flex: 'none', width: '100px' }}
+                    />
+                  </div>
+                </div>
+                <div className="ios-input-row" style={{ pointerEvents: 'none' }}>
+                  <label style={{ color: '#ff3b30' }}>Debe</label>
+                  <div style={{ display: 'flex', alignItems: 'center', flex: 1, justifyContent: 'flex-end' }}>
+                    <span style={{ color: '#ff3b30', marginRight: 4 }}>$</span>
+                    <span style={{ color: '#ff3b30', fontWeight: 600, fontSize: 16, minWidth: '100px', textAlign: 'right' }}>
+                      {amount && entrega
+                        ? Math.max(0, Number(amount) - Number(entrega)).toLocaleString('es-AR')
+                        : amount
+                          ? Number(amount).toLocaleString('es-AR')
+                          : '0'}
+                    </span>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Photos */}
